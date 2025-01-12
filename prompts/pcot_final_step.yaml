@@ -1,0 +1,320 @@
+PCoT_One_MultiStep:
+  VaN:
+    system: >
+      You are an AI assistant trained to detect fake news.
+    user_part_1: >
+      The text you are about to analyze has already been reviewed to identify any high-level persuasion approaches. The results of this analysis are presented below:
+    user_part_2: >
+      Keep in mind that above results may include errors and not all explanations may be right. Knowing this now it is your turn to analyze text and decide if text include fake news.
+      Analyze the given text and determine if it is real or fake news. Answer only 'real' or 'fake'.
+  Z-CoT:
+    system: >
+      You are an AI assistant trained to detect fake news.
+    user_part_1: >
+      The text you are about to analyze has already been reviewed to identify any high-level persuasion approaches. The results of this analysis are presented below:
+    user_part_2: >
+      Keep in mind that above results may include errors and not all explanations may be right. Knowing this now it is your turn to analyze text and decide if text include fake news.
+      Deeply Analyze the given text, think step by-step, and determine if it is real or fake news. Answer only 'real' or 'fake'.
+  MsReN:
+    system: >
+      You are an AI fact checker trained to detect fake news.
+    user_part_1: >
+      The text you are about to analyze has already been reviewed to identify any high-level persuasion approaches. The results of this analysis are presented below:
+    user_part_2: >
+      Keep in mind that above results may include errors and not all explanations may be right. Knowing this now it is your turn to analyze text and decide if text include fake news.
+      Analyze the text in detail as a fact checker would solve it by splitting your reasoning into steps. Check for misleading info, false claims, biased language. Do not show your analysis. If real, respond only 'True', if fake, respond only 'False'.
+  DeF_Spec:
+    system: >
+      You are an AI assistant trained to detect fake news.
+    user_part_1: >
+      The text you are about to analyze has already been reviewed to identify any high-level persuasion approaches. The results of this analysis are presented below:
+    user_part_2: >
+      Keep in mind that above results may include errors and not all explanations may be right. Knowing this now it is your turn to analyze text and decide if text include fake news.
+      Analyze the tone, language, sources to determine if the text is real (supported by facts) or fake (misleading info). If real, respond only 'True', if fake, respond only 'False'.
+PCoT_One_Task_At_a_Time:
+  VaN:
+    system: >
+      You are an AI assistant trained to detect fake news.
+    user_part_1: >
+      The text you are about to analyze has already been reviewed by 6 independent AI analysts to identify high-level persuasion approaches. Each AI analysts specialized in one persuasion high-level strategy. The results of this analysis are presented below:
+    user_part_2: >
+      Keep in mind that above results may include errors and not all explanations may be right. Knowing this now it is your turn to analyze text and decide if text include fake news.
+      Analyze the given text and determine if it is real or fake news. Answer only 'real' or 'fake'.
+  Z-CoT:
+    system: >
+      You are an AI assistant trained to detect fake news.
+    user_part_1: >
+      The text you are about to analyze has already been reviewed by 6 independent AI analysts to identify high-level persuasion approaches. Each AI analysts specialized in one persuasion high-level strategy. The results of this analysis are presented below:
+    user_part_2: >
+      Keep in mind that above results may include errors and not all explanations may be right. Knowing this now it is your turn to analyze text and decide if text include fake news.
+      Deeply Analyze the given text, think step by-step, and determine if it is real or fake news. Answer only 'real' or 'fake'.
+  MsReN:
+    system: >
+      You are an AI fact checker trained to detect fake news.
+    user_part_1: >
+      The text you are about to analyze has already been reviewed by 6 independent AI analysts to identify high-level persuasion approaches. Each AI analysts specialized in one persuasion high-level strategy. The results of this analysis are presented below:
+    user_part_2: >
+      Keep in mind that above results may include errors and not all explanations may be right. Knowing this now it is your turn to analyze text and decide if text include fake news.
+      Analyze the text in detail as a fact checker would solve it by splitting your reasoning into steps. Check for misleading info, false claims, biased language. Do not show your analysis. If real, respond only 'True', if fake, respond only 'False'.
+  DeF_Spec:
+    system: >
+      You are an AI assistant trained to detect fake news.
+    user_part_1: >
+      The text you are about to analyze has already been reviewed by 6 independent AI analysts to identify high-level persuasion approaches. Each AI analysts specialized in one persuasion high-level strategy. The results of this analysis are presented below:
+    user_part_2: >
+      Keep in mind that above results may include errors and not all explanations may be right. Knowing this now it is your turn to analyze text and decide if text include fake news.
+      Analyze the tone, language, sources to determine if the text is real (supported by facts) or fake (misleading info). If real, respond only 'True', if fake, respond only 'False'.
+PCoT_One_Detailed_Task_At_a_Time:
+  VaN:
+    system: >
+      You are an AI assistant trained to detect fake news.
+    user_part_1: >
+      The text you are about to analyze has already been reviewed by 6 independent AI analysts to identify high-level persuasion approaches. Each AI analysts specialized in one persuasion high-level strategy. The results of this analysis are presented below:
+    user_part_2: >
+      Keep in mind that above results may include errors and not all explanations may be right. Knowing this now it is your turn to analyze text and decide if text include fake news.
+      Analyze the given text and determine if it is real or fake news. Answer only 'real' or 'fake'.
+  Z-CoT:
+    system: >
+      You are an AI assistant trained to detect fake news.
+    user_part_1: >
+      The text you are about to analyze has already been reviewed by 6 independent AI analysts to identify high-level persuasion approaches. Each AI analysts specialized in one persuasion high-level strategy. The results of this analysis are presented below:
+    user_part_2: >
+      Keep in mind that above results may include errors and not all explanations may be right. Knowing this now it is your turn to analyze text and decide if text include fake news.
+      Deeply Analyze the given text, think step by-step, and determine if it is real or fake news. Answer only 'real' or 'fake'.
+  MsReN:
+    system: >
+      You are an AI fact checker trained to detect fake news.
+    user_part_1: >
+      The text you are about to analyze has already been reviewed by 6 independent AI analysts to identify high-level persuasion approaches. Each AI analysts specialized in one persuasion high-level strategy. The results of this analysis are presented below:
+    user_part_2: >
+      Keep in mind that above results may include errors and not all explanations may be right. Knowing this now it is your turn to analyze text and decide if text include fake news.
+      Analyze the text in detail as a fact checker would solve it by splitting your reasoning into steps. Check for misleading info, false claims, biased language. Do not show your analysis. If real, respond only 'True', if fake, respond only 'False'.
+  DeF_Spec:
+    system: >
+      You are an AI assistant trained to detect fake news.
+    user_part_1: >
+      The text you are about to analyze has already been reviewed by 6 independent AI analysts to identify high-level persuasion approaches. Each AI analysts specialized in one persuasion high-level strategy. The results of this analysis are presented below:
+    user_part_2: >
+      Keep in mind that above results may include errors and not all explanations may be right. Knowing this now it is your turn to analyze text and decide if text include fake news.
+      Analyze the tone, language, sources to determine if the text is real (supported by facts) or fake (misleading info). If real, respond only 'True', if fake, respond only 'False'.
+PCoT_Ensemble:
+  VaN:
+    Attack_on_reputation:
+      system: >
+        You are an AI assistant trained to detect fake news.
+      user_part_1: >
+        The text you are about to analyze has already been reviewed by AI analyst to identify high-level persuasion approach called Attack on Reputation. The result of this analysis is presented below:
+        Analysis of the high-level persuasion strategy known as 'Attack on Reputation':
+      user_part_2: >
+        Keep in mind that above results may include errors and not all explanations may be right. Knowing this now it is your turn to analyze text and decide if text include fake news.
+        Analyze the given text and determine if it is real or fake news. Answer only 'real' or 'fake'.
+    Justification:
+      system: >
+        You are an AI assistant trained to detect fake news.
+      user_part_1: >
+        The text you are about to analyze has already been reviewed by AI analyst to identify high-level persuasion approach called Justification. The result of this analysis is presented below:
+        Analysis of the high-level persuasion strategy known as 'Justification':
+      user_part_2: >
+        Keep in mind that above results may include errors and not all explanations may be right. Knowing this now it is your turn to analyze text and decide if text include fake news.
+        Analyze the given text and determine if it is real or fake news. Answer only 'real' or 'fake'.
+    Simplification:
+      system: >
+        You are an AI assistant trained to detect fake news.
+      user_part_1: >
+        The text you are about to analyze has already been reviewed by AI analyst to identify high-level persuasion approach called Simplification. The result of this analysis is presented below:
+        Analysis of the high-level persuasion strategy known as 'Simplification':
+      user_part_2: >
+        Keep in mind that above results may include errors and not all explanations may be right. Knowing this now it is your turn to analyze text and decide if text include fake news.
+        Analyze the given text and determine if it is real or fake news. Answer only 'real' or 'fake'.
+    Distraction:
+      system: >
+        You are an AI assistant trained to detect fake news.
+      user_part_1: >
+        The text you are about to analyze has already been reviewed by AI analyst to identify high-level persuasion approach called Distraction. The result of this analysis is presented below:
+        Analysis of the high-level persuasion strategy known as 'Distraction':
+      user_part_2: >
+        Keep in mind that above results may include errors and not all explanations may be right. Knowing this now it is your turn to analyze text and decide if text include fake news.
+        Analyze the given text and determine if it is real or fake news. Answer only 'real' or 'fake'.
+    Call:
+      system: >
+        You are an AI assistant trained to detect fake news.
+      user_part_1: >
+        The text you are about to analyze has already been reviewed by AI analyst to identify high-level persuasion approach called Call. The result of this analysis is presented below:
+        Analysis of the high-level persuasion strategy known as 'Call':
+      user_part_2: >
+        Keep in mind that above results may include errors and not all explanations may be right. Knowing this now it is your turn to analyze text and decide if text include fake news.
+        Analyze the given text and determine if it is real or fake news. Answer only 'real' or 'fake'.
+    Manipulative_wording:
+      system: >
+        You are an AI assistant trained to detect fake news.
+      user_part_1: >
+        The text you are about to analyze has already been reviewed by AI analyst to identify high-level persuasion approach called Manipulative wording. The result of this analysis is presented below:
+        Analysis of the high-level persuasion strategy known as 'Manipulative wording':
+      user_part_2: >
+        Keep in mind that above results may include errors and not all explanations may be right. Knowing this now it is your turn to analyze text and decide if text include fake news.
+        Analyze the given text and determine if it is real or fake news. Answer only 'real' or 'fake'.
+  Z-CoT:
+    Attack_on_reputation:
+      system: >
+        You are an AI assistant trained to detect fake news.
+      user_part_1: >
+        The text you are about to analyze has already been reviewed by AI analyst to identify high-level persuasion approach called Attack on Reputation. The result of this analysis is presented below:
+        Analysis of the high-level persuasion strategy known as 'Attack on Reputation':
+      user_part_2: >
+        Keep in mind that above results may include errors and not all explanations may be right. Knowing this now it is your turn to analyze text and decide if text include fake news.
+        Deeply Analyze the given text, think step by-step, and determine if it is real or fake news. Answer only 'real' or 'fake'.
+    Justification:
+      system: >
+        You are an AI assistant trained to detect fake news.
+      user_part_1: >
+        The text you are about to analyze has already been reviewed by AI analyst to identify high-level persuasion approach called Justification. The result of this analysis is presented below:
+        Analysis of the high-level persuasion strategy known as 'Justification':
+      user_part_2: >
+        Keep in mind that above results may include errors and not all explanations may be right. Knowing this now it is your turn to analyze text and decide if text include fake news.
+        Deeply Analyze the given text, think step by-step, and determine if it is real or fake news. Answer only 'real' or 'fake'.
+    Simplification:
+      system: >
+        You are an AI assistant trained to detect fake news.
+      user_part_1: >
+        The text you are about to analyze has already been reviewed by AI analyst to identify high-level persuasion approach called Simplification. The result of this analysis is presented below:
+        Analysis of the high-level persuasion strategy known as 'Simplification':
+      user_part_2: >
+        Keep in mind that above results may include errors and not all explanations may be right. Knowing this now it is your turn to analyze text and decide if text include fake news.
+        Deeply Analyze the given text, think step by-step, and determine if it is real or fake news. Answer only 'real' or 'fake'.
+    Distraction:
+      system: >
+        You are an AI assistant trained to detect fake news.
+      user_part_1: >
+        The text you are about to analyze has already been reviewed by AI analyst to identify high-level persuasion approach called Distraction. The result of this analysis is presented below:
+        Analysis of the high-level persuasion strategy known as 'Distraction':
+      user_part_2: >
+        Keep in mind that above results may include errors and not all explanations may be right. Knowing this now it is your turn to analyze text and decide if text include fake news.
+        Deeply Analyze the given text, think step by-step, and determine if it is real or fake news. Answer only 'real' or 'fake'.
+    Call:
+      system: >
+        You are an AI assistant trained to detect fake news.
+      user_part_1: >
+        The text you are about to analyze has already been reviewed by AI analyst to identify high-level persuasion approach called Call. The result of this analysis is presented below:
+        Analysis of the high-level persuasion strategy known as 'Call':
+      user_part_2: >
+        Keep in mind that above results may include errors and not all explanations may be right. Knowing this now it is your turn to analyze text and decide if text include fake news.
+        Deeply Analyze the given text, think step by-step, and determine if it is real or fake news. Answer only 'real' or 'fake'.
+    Manipulative_wording:
+      system: >
+        You are an AI assistant trained to detect fake news.
+      user_part_1: >
+        The text you are about to analyze has already been reviewed by AI analyst to identify high-level persuasion approach called Manipulative wording. The result of this analysis is presented below:
+        Analysis of the high-level persuasion strategy known as 'Manipulative wording':
+      user_part_2: >
+        Keep in mind that above results may include errors and not all explanations may be right. Knowing this now it is your turn to analyze text and decide if text include fake news.
+        Deeply Analyze the given text, think step by-step, and determine if it is real or fake news. Answer only 'real' or 'fake'.
+  MsReN:
+    Attack_on_reputation:
+      system: >
+        You are an AI fact checker trained to detect fake news.
+      user_part_1: >
+        The text you are about to analyze has already been reviewed by AI analyst to identify high-level persuasion approach called Attack on Reputation. The result of this analysis is presented below:
+        Analysis of the high-level persuasion strategy known as 'Attack on Reputation':
+      user_part_2: >
+        Keep in mind that above results may include errors and not all explanations may be right. Knowing this now it is your turn to analyze text and decide if text include fake news.
+        Analyze the text in detail as a fact checker would solve it by splitting your reasoning into steps. Check for misleading info, false claims, biased language. Do not show your analysis. If real, respond only 'True', if fake, respond only 'False'.
+    Justification:
+      system: >
+        You are an AI fact checker trained to detect fake news.
+      user_part_1: >
+        The text you are about to analyze has already been reviewed by AI analyst to identify high-level persuasion approach called Justification. The result of this analysis is presented below:
+        Analysis of the high-level persuasion strategy known as 'Justification':
+      user_part_2: >
+        Keep in mind that above results may include errors and not all explanations may be right. Knowing this now it is your turn to analyze text and decide if text include fake news.
+        Analyze the text in detail as a fact checker would solve it by splitting your reasoning into steps. Check for misleading info, false claims, biased language. Do not show your analysis. If real, respond only 'True', if fake, respond only 'False'.
+    Simplification:
+      system: >
+        You are an AI fact checker trained to detect fake news.
+      user_part_1: >
+        The text you are about to analyze has already been reviewed by AI analyst to identify high-level persuasion approach called Simplification. The result of this analysis is presented below:
+        Analysis of the high-level persuasion strategy known as 'Simplification':
+      user_part_2: >
+        Keep in mind that above results may include errors and not all explanations may be right. Knowing this now it is your turn to analyze text and decide if text include fake news.
+        Analyze the text in detail as a fact checker would solve it by splitting your reasoning into steps. Check for misleading info, false claims, biased language. Do not show your analysis. If real, respond only 'True', if fake, respond only 'False'.
+    Distraction:
+      system: >
+        You are an AI fact checker trained to detect fake news.
+      user_part_1: >
+        The text you are about to analyze has already been reviewed by AI analyst to identify high-level persuasion approach called Distraction. The result of this analysis is presented below:
+        Analysis of the high-level persuasion strategy known as 'Distraction':
+      user_part_2: >
+        Keep in mind that above results may include errors and not all explanations may be right. Knowing this now it is your turn to analyze text and decide if text include fake news.
+        Analyze the text in detail as a fact checker would solve it by splitting your reasoning into steps. Check for misleading info, false claims, biased language. Do not show your analysis. If real, respond only 'True', if fake, respond only 'False'.
+    Call:
+      system: >
+        You are an AI fact checker trained to detect fake news.
+      user_part_1: >
+        The text you are about to analyze has already been reviewed by AI analyst to identify high-level persuasion approach called Call. The result of this analysis is presented below:
+        Analysis of the high-level persuasion strategy known as 'Call':
+      user_part_2: >
+        Keep in mind that above results may include errors and not all explanations may be right. Knowing this now it is your turn to analyze text and decide if text include fake news.
+        Analyze the text in detail as a fact checker would solve it by splitting your reasoning into steps. Check for misleading info, false claims, biased language. Do not show your analysis. If real, respond only 'True', if fake, respond only 'False'.
+    Manipulative_wording:
+      system: >
+        You are an AI fact checker trained to detect fake news.
+      user_part_1: >
+        The text you are about to analyze has already been reviewed by AI analyst to identify high-level persuasion approach called Manipulative wording. The result of this analysis is presented below:
+        Analysis of the high-level persuasion strategy known as 'Manipulative wording':
+      user_part_2: >
+        Keep in mind that above results may include errors and not all explanations may be right. Knowing this now it is your turn to analyze text and decide if text include fake news.
+        Analyze the text in detail as a fact checker would solve it by splitting your reasoning into steps. Check for misleading info, false claims, biased language. Do not show your analysis. If real, respond only 'True', if fake, respond only 'False'.
+  DeF_Spec:
+    Attack_on_reputation:
+      system: >
+        You are an AI assistant trained to detect fake news.
+      user_part_1: >
+        The text you are about to analyze has already been reviewed by AI analyst to identify high-level persuasion approach called Attack on Reputation. The result of this analysis is presented below:
+        Analysis of the high-level persuasion strategy known as 'Attack on Reputation':
+      user_part_2: >
+        Keep in mind that above results may include errors and not all explanations may be right. Knowing this now it is your turn to analyze text and decide if text include fake news.
+        Analyze the tone, language, sources to determine if the text is real (supported by facts) or fake (misleading info). If real, respond only 'True', if fake, respond only 'False'.
+    Justification:
+      system: >
+        You are an AI assistant trained to detect fake news.
+      user_part_1: >
+        The text you are about to analyze has already been reviewed by AI analyst to identify high-level persuasion approach called Justification. The result of this analysis is presented below:
+        Analysis of the high-level persuasion strategy known as 'Justification':
+      user_part_2: >
+        Keep in mind that above results may include errors and not all explanations may be right. Knowing this now it is your turn to analyze text and decide if text include fake news.
+        Analyze the tone, language, sources to determine if the text is real (supported by facts) or fake (misleading info). If real, respond only 'True', if fake, respond only 'False'.
+    Simplification:
+      system: >
+        You are an AI assistant trained to detect fake news.
+      user_part_1: >
+        The text you are about to analyze has already been reviewed by AI analyst to identify high-level persuasion approach called Simplification. The result of this analysis is presented below:
+        Analysis of the high-level persuasion strategy known as 'Simplification':
+      user_part_2: >
+        Keep in mind that above results may include errors and not all explanations may be right. Knowing this now it is your turn to analyze text and decide if text include fake news.
+        Analyze the tone, language, sources to determine if the text is real (supported by facts) or fake (misleading info). If real, respond only 'True', if fake, respond only 'False'.
+    Distraction:
+      system: >
+        You are an AI assistant trained to detect fake news.
+      user_part_1: >
+        The text you are about to analyze has already been reviewed by AI analyst to identify high-level persuasion approach called Distraction. The result of this analysis is presented below:
+        Analysis of the high-level persuasion strategy known as 'Distraction':
+      user_part_2: >
+        Keep in mind that above results may include errors and not all explanations may be right. Knowing this now it is your turn to analyze text and decide if text include fake news.
+        Analyze the tone, language, sources to determine if the text is real (supported by facts) or fake (misleading info). If real, respond only 'True', if fake, respond only 'False'.
+    Call:
+      system: >
+        You are an AI assistant trained to detect fake news.
+      user_part_1: >
+        The text you are about to analyze has already been reviewed by AI analyst to identify high-level persuasion approach called Call. The result of this analysis is presented below:
+        Analysis of the high-level persuasion strategy known as 'Call':
+      user_part_2: >
+        Keep in mind that above results may include errors and not all explanations may be right. Knowing this now it is your turn to analyze text and decide if text include fake news.
+        Analyze the tone, language, sources to determine if the text is real (supported by facts) or fake (misleading info). If real, respond only 'True', if fake, respond only 'False'.
+    Manipulative_wording:
+      system: >
+        You are an AI assistant trained to detect fake news.
+      user_part_1: >
+        The text you are about to analyze has already been reviewed by AI analyst to identify high-level persuasion approach called Manipulative wording. The result of this analysis is presented below:
+        Analysis of the high-level persuasion strategy known as 'Manipulative wording':
+      user_part_2: >
+        Keep in mind that above results may include errors and not all explanations may be right. Knowing this now it is your turn to analyze text and decide if text include fake news.
+        Analyze the tone, language, sources to determine if the text is real (supported by facts) or fake (misleading info). If real, respond only 'True', if fake, respond only 'False'.
