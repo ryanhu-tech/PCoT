@@ -1,151 +1,217 @@
 """Helper functions"""
-
 import os
-import re
 import time
 import yaml
 import logging
+import anthropic
 import pandas as pd
 import concurrent.futures
 from tqdm import tqdm
 from openai import OpenAI
 from dotenv import load_dotenv
 from sklearn.metrics import f1_score
+import google.generativeai as genai
 
 # Load environment variables from .env file
 load_dotenv()
-
+TEMPERATURE = 0.0
+#
 # Retrieve API keys from environment variables
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 DEEPINFRA_API_KEY = os.getenv("DEEPINFRA_API_KEY")
+DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+CLAUDE_API_KEY = os.getenv("CLAUDE_API_KEY")
+
+
+def read_csv_file(dataset_file):
+    """Reads a CSV file and logs its status."""
+    try:
+        df = pd.read_csv(dataset_file)
+        logging.info(f"Successfully read the file: {dataset_file}")
+        logging.info(f"DataFrame shape: {df.shape}")
+        return df
+    except FileNotFoundError:
+        logging.error(f"File not found: {dataset_file}")
+        exit(1)  # Exit the script if the file is not found
+    except Exception as e:
+        logging.error("An error occurred while reading the CSV file.", exc_info=True)
+        exit(1)  # Exit the script if there's any other error
+
+
+def setup_logging(log_filename, dataset_file, model, output_file_path):
+    """Sets up logging configuration and logs initial script parameters."""
+    log_dir = os.path.dirname(log_filename)
+    os.makedirs(log_dir, exist_ok=True)
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(levelname)s - %(message)s",
+        handlers=[
+            logging.FileHandler(log_filename)
+        ]
+    )
+
+    logging.info("Script started with the following parameters:")
+    logging.info(f"Test file path: {dataset_file}")
+    logging.info(f"Model: {model}")
+    logging.info(f"Output file path: {output_file_path}")
 
 
 def client_instance(model):
-    if model == "gpt-4o-mini":
+    if model in ["gpt-4o-mini"]:
         client = OpenAI(api_key=OPENAI_API_KEY)
         return client
-    elif model == "meta-llama/Llama-3.3-70B-Instruct-Turbo":
+    elif model in ["meta-llama/Llama-3.3-70B-Instruct-Turbo", "meta-llama/Meta-Llama-3.1-8B-Instruct"]:
         client = OpenAI(api_key=DEEPINFRA_API_KEY, base_url="https://api.deepinfra.com/v1/openai")
         return client
-
-
-def encode_columns(df):
-    """
-    Encodes the last columns of the DataFrame with the following rules:
-    - "real" -> 0
-    - "fake" -> 1
-    - True (np.bool_) -> 0
-    - False (np.bool_) -> 1
-
-    Parameters:
-        df (pd.DataFrame): The input DataFrame.
-
-    Returns:
-        pd.DataFrame: A DataFrame with the last columns encoded.
-    """
-    # Create a copy of the DataFrame to avoid modifying the original
-    df_encoded = df.copy()
-    column_names=df_encoded.columns[-6:]
-    # Iterate over the columns to process the last ones
-    for col in column_names:
-        df_encoded[col] = df_encoded[col].apply(lambda x: 0 if x in ["real", True] else 1)
-
-    return df_encoded
-
-
-# Function to perform majority voting
-def majority_voting(row):
-    # Count occurrences of 0 and 1
-    counts = row.value_counts()
-    # Ensure we access the counts by labels explicitly
-    real_count = counts.get(0, 0)
-    fake_count = counts.get(1, 0)
-    # Determine majority
-    return 'real' if real_count > fake_count else 'fake'
-
-
-def process_ensemble_with_named_columns(df, column_names, results_path, output_filename):
-    """
-    Processes specified columns in the DataFrame, applies label encoding, computes majority voting, and saves the result.
-
-    Args:
-        df (pd.DataFrame): The input DataFrame.
-        column_names (list): List of column names to process.
-        results_path (str): Path to save the resulting CSV.
-        output_filename (str, optional): The name of the output file. Defaults to 'ensemble_pcot.csv'.
-
-    Returns:
-        pd.DataFrame: The processed DataFrame with a 'majority_vote' column added.
-    """
-    # Apply label encoding to the specified columns
-    df = df.copy()
-    df = encode_columns(df)
-
-    # Apply majority voting across the specified columns
-    df['majority_vote'] = df[column_names].apply(majority_voting, axis=1)
-
-    # Save the processed DataFrame
-    output_path = f"{results_path}/{output_filename}"
-    results_path = os.path.dirname(output_path)
-    os.makedirs(results_path, exist_ok=True)
-    df.to_csv(output_path, index=False)
-
-    return df
-
-
-def remove_csv_suffix(file_path):
-    """
-    Removes any '.csv' file name at the end of the provided string.
-
-    Args:
-        file_path (str): The file path as a string.
-
-    Returns:
-        str: The file path with the '.csv' file name removed.
-    """
-    return re.sub(r'[\\/][^\\/]*\.csv$', '', file_path)
+    elif model == "claude-3-haiku-20240307":
+        client = anthropic.Anthropic(api_key=CLAUDE_API_KEY)
+        return client
 
 
 def compute_metrics(y_true, y_pred):
     # clf_report = classification_report(y_true, y_pred, output_dict=True)
     f1 = f1_score(y_true=y_true, y_pred=y_pred)
-    # f1_micro_average = f1_score(y_true=y_true, y_pred=y_pred, average='micro')
+    f1_micro_average = f1_score(y_true=y_true, y_pred=y_pred, average='micro')
     f1_macro_average = f1_score(y_true=y_true, y_pred=y_pred, average='macro')
     f1_macro_weighted = f1_score(y_true=y_true, y_pred=y_pred, average='weighted')
     # roc_auc = roc_auc_score(y_true, y_pred, average='micro')
     # accuracy = accuracy_score(y_true, y_pred)
 
     metrics = {
-        'f1': f1,
-        'f1_macro': f1_macro_average,
-        'f1_macro_weighted': f1_macro_weighted
+        'f1': round(f1, 3),
+        'f1_micro': round(f1_micro_average, 3),
+        'f1_macro': round(f1_macro_average, 3),
+        'f1_macro_weighted': round(f1_macro_weighted, 3)
     }
 
     return metrics
 
 
-def process_text_with_model(index, text, model, dataframe, column, system_prompt, user_prompt):
+def process_text_with_model(index, text, model, system_prompt, user_prompt):
     """
+    Processes a single text using the model and returns the result.
+    """
+    try:
+        user_prompt = user_prompt + f" Text:{text}. Answer:"
+        if model == "gemini-1.5-flash":
+            genai.configure(api_key=GEMINI_API_KEY)
+            if system_prompt:
+                model = genai.GenerativeModel(
+                    model_name="gemini-1.5-flash",
+                    system_instruction=system_prompt)
+            else:
+                model = genai.GenerativeModel(
+                    model_name="gemini-1.5-flash")
+            response = model.generate_content(
+                user_prompt,
+                generation_config=genai.GenerationConfig(
+                    temperature=TEMPERATURE,
+                )
+            )
+            result = {
+                "index": index,
+                "system_prompt": system_prompt,
+                "user_prompt": user_prompt,
+                "completion": response.text,
+            }
+            return result
+
+        else:
+            client = client_instance(model=model)
+            completion = client.chat.completions.create(
+                model=model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                temperature=TEMPERATURE
+            )
+            result = {
+                "index": index,
+                "system_prompt": system_prompt,
+                "user_prompt": user_prompt,
+                "completion": completion.choices[0].message.content,
+            }
+            return result
+    except Exception as e:
+        print(f"Error processing row {index}: {e}")
+        time.sleep(2)  # To avoid rapid retries in case of API issues
+        return {"index": index, "system_prompt": None, "user_prompt": None, "completion": None}
+
+
+def process_text_with_model_claude(index, text, model, system_prompt, user_prompt):
+    """
+    Processes a single text using the model and returns the result.
     """
     try:
         client = client_instance(model=model)
-        user_prompt = user_prompt + f""" Text:{text}. Answer:"""
-        completion = client.chat.completions.create(
+        user_prompt = user_prompt + f" Text:{text}. Answer:"
+
+        completion = client.messages.create(
             model=model,
+            max_tokens=4096,
+            temperature=TEMPERATURE,
+            system=system_prompt,
             messages=[
-                {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
-            ],
-            temperature=0.0
+            ]
         )
-        dataframe.iloc[index, dataframe.columns.get_loc("system_prompt")] = system_prompt
-        dataframe.iloc[index, dataframe.columns.get_loc("user_prompt")] = user_prompt
-        dataframe.iloc[index, dataframe.columns.get_loc(column)] = completion.choices[0].message.content
-        return index, completion.choices[0].message.content
+
+        result = {
+            "index": index,
+            "system_prompt": system_prompt,
+            "user_prompt": user_prompt,
+            "completion": completion.content[0].text,
+        }
+        return result
     except Exception as e:
         print(f"Error processing row {index}: {e}")
-        time.sleep(3)
+        time.sleep(2)  # Delay before retrying in case of API issues
         return None
+
+
+def sequential_text_processing_claude(dataframe, col_with_content, column, filename, model, system_prompt, user_prompt):
+    """
+    Processes texts in the dataframe sequentially and respects a rate limit of 50 requests per minute.
+    """
+    # Ensure the column exists
+    dataframe["system_prompt"] = None
+    dataframe["user_prompt"] = None
+    dataframe[column] = None
+
+    # Ensure the directory for the file exists
+    os.makedirs(os.path.dirname(filename), exist_ok=True)
+
+    results = []
+    request_count = 0
+    start_time = time.time()
+
+    for index, text in tqdm(enumerate(dataframe[col_with_content]), total=len(dataframe)):
+        # Check if we need to respect the rate limit
+        elapsed_time = time.time() - start_time
+        if request_count >= 50 and elapsed_time < 60:
+            sleep_time = 60 - elapsed_time
+            print(f"Rate limit reached. Sleeping for {sleep_time:.2f} seconds...")
+            time.sleep(sleep_time)
+            start_time = time.time()
+            request_count = 0
+
+        # Process the text
+        result = process_text_with_model_claude(index, text, model, system_prompt, user_prompt)
+        if result:
+            results.append(result)
+            request_count += 1
+
+    # Update the DataFrame after all requests have been processed
+    for result in results:
+        dataframe.at[result["index"], "system_prompt"] = result["system_prompt"]
+        dataframe.at[result["index"], "user_prompt"] = result["user_prompt"]
+        dataframe.at[result["index"], column] = result["completion"]
+
+    # Save the DataFrame
+    dataframe.to_csv(filename, index=False)
 
 
 def parallel_text_processing(dataframe, col_with_content, column, filename, model, system_prompt, user_prompt):
@@ -159,18 +225,28 @@ def parallel_text_processing(dataframe, col_with_content, column, filename, mode
     # Ensure the directory for the file exists
     os.makedirs(os.path.dirname(filename), exist_ok=True)
 
-    # Use ThreadPoolExecutor to parallelize requests
+    results = []
+
     with concurrent.futures.ThreadPoolExecutor() as executor:
-        futures = []
-        for it, text in tqdm(enumerate(dataframe[col_with_content])):
-            futures.append(
-                executor.submit(process_text_with_model, it, text, model, dataframe, column, system_prompt, user_prompt)
-            )
+        futures = [
+            executor.submit(process_text_with_model, index, text, model, system_prompt, user_prompt)
+            for index, text in enumerate(dataframe[col_with_content])
+        ]
+        for future in tqdm(concurrent.futures.as_completed(futures), total=len(futures)):
+            try:
+                result = future.result()
+                if result:
+                    results.append(result)
+            except Exception as e:
+                print(f"Thread failed with error: {e}")
+    # Update the DataFrame after all threads have completed
+    for result in results:
+        dataframe.at[result["index"], "system_prompt"] = result["system_prompt"]
+        dataframe.at[result["index"], "user_prompt"] = result["user_prompt"]
+        dataframe.at[result["index"], column] = result["completion"]
 
-    # Save the results to a CSV
+    # Save the DataFrame
     dataframe.to_csv(filename, index=False)
-
-    return dataframe
 
 
 def load_prompts_simple_detection(prompts_file_path, prompt_type):
@@ -206,46 +282,10 @@ def load_prompts_pcot_one_multistep(prompts_file_path, method_type, prompt_type,
         with open(prompts_file_path, "r") as file:
             prompts = yaml.safe_load(file)
 
-            if method_type == "pcot_one_multistep":
-                system_prompt = prompts["PCoT_One_MultiStep"][prompt_type]['system']
-                user_prompt_1 = prompts["PCoT_One_MultiStep"][prompt_type]['user_part_1']
-                user_prompt_2 = prompts["PCoT_One_MultiStep"][prompt_type]['user_part_2']
-                return system_prompt, user_prompt_1, user_prompt_2
-            elif method_type == "pcot_one_detailed_multistep":
+            if method_type == "pcot_one_detailed_multistep":
                 system_prompt = prompts["PCoT_One_Detailed_MultiStep"][prompt_type]['system']
                 user_prompt_1 = prompts["PCoT_One_Detailed_MultiStep"][prompt_type]['user_part_1']
                 user_prompt_2 = prompts["PCoT_One_Detailed_MultiStep"][prompt_type]['user_part_2']
-                return system_prompt, user_prompt_1, user_prompt_2
-            elif method_type=="pcot_one_multistep_human_llm_knowledge_infusion":
-                system_prompt = prompts["PCoT_One_MultiStep_Human_LLM_Knowledge_Infusion"][prompt_type]['system']
-                user_prompt_1 = prompts["PCoT_One_MultiStep_Human_LLM_Knowledge_Infusion"][prompt_type]['user_part_1']
-                user_prompt_2 = prompts["PCoT_One_MultiStep_Human_LLM_Knowledge_Infusion"][prompt_type]['user_part_2']
-                return system_prompt, user_prompt_1, user_prompt_2
-            elif method_type == "pcot_one_multistep_detailed_human_llm_knowledge_infusion":
-                system_prompt = prompts["PCoT_One_MultiStep_Detailed_Human_LLM_Knowledge_Infusion"][prompt_type]['system']
-                user_prompt_1 = prompts["PCoT_One_MultiStep_Detailed_Human_LLM_Knowledge_Infusion"][prompt_type]['user_part_1']
-                user_prompt_2 = prompts["PCoT_One_MultiStep_Detailed_Human_LLM_Knowledge_Infusion"][prompt_type]['user_part_2']
-                return system_prompt, user_prompt_1, user_prompt_2
-            elif method_type == "pcot_one_task_at_a_time":
-                system_prompt = prompts["PCoT_One_Task_At_a_Time"][prompt_type]['system']
-                user_prompt_1 = prompts["PCoT_One_Task_At_a_Time"][prompt_type]['user_part_1']
-                user_prompt_2 = prompts["PCoT_One_Task_At_a_Time"][prompt_type]['user_part_2']
-                return system_prompt, user_prompt_1, user_prompt_2
-            elif method_type == "pcot_one_detailed_task_at_a_time":
-                system_prompt = prompts["PCoT_One_Detailed_Task_At_a_Time"][prompt_type]['system']
-                user_prompt_1 = prompts["PCoT_One_Detailed_Task_At_a_Time"][prompt_type]['user_part_1']
-                user_prompt_2 = prompts["PCoT_One_Detailed_Task_At_a_Time"][prompt_type]['user_part_2']
-                return system_prompt, user_prompt_1, user_prompt_2
-            elif method_type in ["pcot_ensemble_one_task_at_a_time", "pcot_ensemble_one_detailed_task_at_a_time",
-                                 "pcot_ensemble_extracted_one_task_at_a_time",
-                                 "pcot_ensemble_extracted_one_detailed_task_at_a_time"]:
-                if persuasion_group is None:
-                    raise ValueError("""persuasion_group must be provided for these methods:
-                     'pcot_ensemble_one_task_at_a_time' 
-                     'pcot_ensemble_one_detailed_task_at_a_time'""")
-                system_prompt = prompts["PCoT_Ensemble"][prompt_type][persuasion_group]['system']
-                user_prompt_1 = prompts["PCoT_Ensemble"][prompt_type][persuasion_group]['user_part_1']
-                user_prompt_2 = prompts["PCoT_Ensemble"][prompt_type][persuasion_group]['user_part_2']
                 return system_prompt, user_prompt_1, user_prompt_2
             else:
                 raise ValueError(f"Task '{prompt_type}' not found in the YAML file {prompts_file_path}.")
@@ -261,47 +301,18 @@ def load_prompts_persuasion_knowledge_infusion(prompts_file_path, method_type, p
         with open(prompts_file_path, "r") as file:
             prompts = yaml.safe_load(file)
 
-            if method_type == "pcot_one_multistep":
-                system_prompt = prompts["PCoT_One_MultiStep"]['system']
-                user_prompt = prompts["PCoT_One_MultiStep"]['user']
-                return system_prompt, user_prompt
-            elif method_type == "pcot_one_detailed_multistep":
+            if method_type == "pcot_one_detailed_multistep":
                 system_prompt = prompts["PCoT_One_Detailed_MultiStep"]['system']
                 user_prompt = prompts["PCoT_One_Detailed_MultiStep"]['user']
                 return system_prompt, user_prompt
-            elif method_type == "pcot_one_task_at_a_time":
-                if persuasion_group is None:
-                    raise ValueError("persuasion_group must be provided for 'pcot_one_task_at_a_time'")
-                system_prompt = prompts["PCoT_One_Task_At_a_Time"][persuasion_group]['system']
-                user_prompt = prompts["PCoT_One_Task_At_a_Time"][persuasion_group]['user']
-                return system_prompt, user_prompt
-            elif method_type == "pcot_one_detailed_task_at_a_time":
-                if persuasion_group is None:
-                    raise ValueError("persuasion_group must be provided for 'pcot_one_task_at_a_time'")
-                system_prompt = prompts["PCoT_One_Detailed_Task_At_a_Time"][persuasion_group]['system']
-                user_prompt = prompts["PCoT_One_Detailed_Task_At_a_Time"][persuasion_group]['user']
-                return system_prompt, user_prompt
             else:
-                raise ValueError("""Method type not available. Method type has to be one from the following:
-                ['pcot_one_multistep', 'pcot_one_task_at_a_time', 'pcot_one_detailed_task_at_a_time']""")
+                raise ValueError("""Method type not available. Method type has to be one from the following: [
+                'pcot_one_detailed_multistep']""")
 
         raise ValueError(f"Invalid method_type: {method_type}")
 
     except Exception as e:
         print(f"Error: {e}")
-        exit(1)
-
-
-def load_high_level_persuasion_groups(config_file_path):
-    """
-    """
-    try:
-        with open(config_file_path, "r") as file:
-            config = yaml.safe_load(file)
-            high_level_persuasion_groups = config["Persuasion_Groups"]
-            return high_level_persuasion_groups
-    except Exception as e:
-        print(e)
         exit(1)
 
 
@@ -311,23 +322,111 @@ def process_pcot_multistep_or_ensemble(index, text, persuasion, model, dataframe
     """
     try:
         user_prompt = user_part_1 + persuasion + "\n" + user_part_2 + f""" Text:{text}. Answer:"""
-        client = client_instance(model=model)
-        completion = client.chat.completions.create(
-            model=model,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt}
-            ],
-            temperature=0.0
-        )
-        dataframe.iloc[index, dataframe.columns.get_loc("system_prompt")] = system_prompt
-        dataframe.iloc[index, dataframe.columns.get_loc("user_prompt")] = user_prompt
-        dataframe.iloc[index, dataframe.columns.get_loc(column)] = completion.choices[0].message.content
-        return index, completion.choices[0].message.content
+
+        if model == "gemini-1.5-flash":
+            genai.configure(api_key=GEMINI_API_KEY)
+            model = genai.GenerativeModel(
+                model_name="gemini-1.5-flash",
+                system_instruction=system_prompt)
+            response = model.generate_content(
+                user_prompt,
+                generation_config=genai.GenerationConfig(
+                    temperature=TEMPERATURE,
+                )
+            )
+            dataframe.iloc[index, dataframe.columns.get_loc("system_prompt")] = system_prompt
+            dataframe.iloc[index, dataframe.columns.get_loc("user_prompt")] = user_prompt
+            dataframe.iloc[index, dataframe.columns.get_loc(column)] = response.text
+            return index, response.text
+        else:
+            client = client_instance(model=model)
+            completion = client.chat.completions.create(
+                model=model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
+                temperature=TEMPERATURE
+            )
+            dataframe.iloc[index, dataframe.columns.get_loc("system_prompt")] = system_prompt
+            dataframe.iloc[index, dataframe.columns.get_loc("user_prompt")] = user_prompt
+            dataframe.iloc[index, dataframe.columns.get_loc(column)] = completion.choices[0].message.content
+            return index, completion.choices[0].message.content
     except Exception as e:
         print(f"Error processing row {index}: {e}")
         time.sleep(3)
         return None
+
+
+# Assuming the client_instance and other imports/functions are already defined
+def process_pcot_multistep_or_ensemble_claude(index, text, persuasion, model, dataframe, column, system_prompt,
+                                              user_part_1, user_part_2):
+    """
+    Process a single row of the dataframe with the given parameters and API request.
+    """
+    try:
+        user_prompt = user_part_1 + persuasion + "\n" + user_part_2 + f" Text:{text}. Answer:"
+        client = client_instance(model=model)
+        completion = client.messages.create(
+            model=model,
+            max_tokens=4096,
+            temperature=TEMPERATURE,
+            system=system_prompt,
+            messages=[
+                {"role": "user", "content": user_prompt}
+            ]
+        )
+        dataframe.iloc[index, dataframe.columns.get_loc("system_prompt")] = system_prompt
+        dataframe.iloc[index, dataframe.columns.get_loc("user_prompt")] = user_prompt
+        dataframe.iloc[index, dataframe.columns.get_loc(column)] = completion.content[0].text
+        return index, completion.content[0].text
+    except Exception as e:
+        print(f"Error processing row {index}: {e}")
+        time.sleep(3)  # Small delay to handle transient errors
+        return None
+
+
+def sequential_pcot_claude(dataframe, col_with_content, column, filename, model, system_prompt,
+                           user_part_1, user_part_2, generated_persuasion_analysis=None):
+    """
+    Sequential version of pcot_one_multistep with rate limiting.
+    """
+    # Ensure the columns exist
+    dataframe["system_prompt"] = None
+    dataframe["user_prompt"] = None
+    dataframe[column] = None
+
+    # Ensure the directory for the file exists
+    os.makedirs(os.path.dirname(filename), exist_ok=True)
+
+    start_time = time.time()
+    request_count = 0
+
+    for it, (text, persuasion) in tqdm(
+            enumerate(zip(dataframe[col_with_content], dataframe[generated_persuasion_analysis])),
+            total=len(dataframe)):
+
+        process_pcot_multistep_or_ensemble_claude(it, text, persuasion, model, dataframe, column, system_prompt,
+                                                  user_part_1, user_part_2)
+
+        # Increment the request count
+        request_count += 1
+
+        # Check if we've hit the 50-requests-per-minute limit
+        if request_count >= 50:
+            elapsed_time = time.time() - start_time
+            if elapsed_time < 60:
+                time_to_wait = 60 - elapsed_time
+                print(f"Rate limit reached. Waiting for {time_to_wait:.2f} seconds...")
+                time.sleep(time_to_wait)
+            # Reset the counter and start time
+            request_count = 0
+            start_time = time.time()
+
+    # Save the results to a CSV
+    dataframe.to_csv(filename, index=False)
+
+    return dataframe
 
 
 def pcot_one_task(index, text, first_explanation, second_explanation, third_explanation, fourth_explanation,
@@ -355,7 +454,7 @@ def pcot_one_task(index, text, first_explanation, second_explanation, third_expl
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
             ],
-            temperature=0.0
+            temperature=TEMPERATURE
         )
         dataframe.iloc[index, dataframe.columns.get_loc("system_prompt")] = system_prompt
         dataframe.iloc[index, dataframe.columns.get_loc("user_prompt")] = user_prompt
@@ -383,37 +482,14 @@ def parallel_pcot(dataframe, method_type, col_with_content, column, filename, mo
     # Use ThreadPoolExecutor to parallelize requests
     with concurrent.futures.ThreadPoolExecutor() as executor:
         futures = []
-        if method_type == "pcot_one_multistep" or method_type == "pcot_one_detailed_multistep" or method_type == "pcot_one_multistep_human_llm_knowledge_infusion" or method_type == "pcot_one_multistep_detailed_human_llm_knowledge_infusion":
+        if method_type == "pcot_one_detailed_multistep":
             for it, (text, persuasion) in tqdm(
                     enumerate(zip(dataframe[col_with_content], dataframe[generated_persuasion_analysis]))):
                 futures.append(
                     executor.submit(process_pcot_multistep_or_ensemble, it, text, persuasion, model, dataframe, column,
                                     system_prompt, user_part_1, user_part_2)
                 )
-        elif method_type in ["pcot_ensemble_one_task_at_a_time", "pcot_ensemble_one_detailed_task_at_a_time",
-                             "pcot_ensemble_extracted_one_task_at_a_time",
-                             "pcot_ensemble_extracted_one_detailed_task_at_a_time"]:
 
-            for it, (text, persuasion) in tqdm(
-                    enumerate(zip(dataframe[col_with_content], dataframe[generated_persuasion_analysis]))):
-                futures.append(
-                    executor.submit(process_pcot_multistep_or_ensemble, it, text, persuasion, model, dataframe, column,
-                                    system_prompt, user_part_1, user_part_2)
-                )
-        elif method_type == "pcot_one_task_at_a_time" or method_type == "pcot_one_detailed_task_at_a_time":
-            persuasion_groups = load_high_level_persuasion_groups("persuasion_groups.yaml")
-            for it, (text, first_explanation, second_explanation, third_explanation, fourth_explanation,
-                     fifth_explanation, sixth_explanation) in tqdm(
-                enumerate(zip(dataframe[col_with_content], dataframe[persuasion_groups[0]],
-                              dataframe[persuasion_groups[1]], dataframe[persuasion_groups[2]],
-                              dataframe[persuasion_groups[3]], dataframe[persuasion_groups[4]],
-                              dataframe[persuasion_groups[5]]))
-            ):
-                futures.append(
-                    executor.submit(pcot_one_task, it, text, first_explanation, second_explanation, third_explanation,
-                                    fourth_explanation, fifth_explanation, sixth_explanation, model, dataframe, column,
-                                    system_prompt, user_part_1, user_part_2)
-                )
     # Wait for all threads to complete
     concurrent.futures.wait(futures)
 
@@ -423,35 +499,30 @@ def parallel_pcot(dataframe, method_type, col_with_content, column, filename, mo
     return dataframe
 
 
-def process_csv_files(dataset_file, config_file_path="persuasion_groups.yaml", ensemble=False):
-    """
-    """
-
-    # Load the high-level persuasion groups from the YAML file
-    required_columns = load_high_level_persuasion_groups(config_file_path)
-
-    csv_files = [f for f in os.listdir(dataset_file) if f.endswith('.csv')]
-    # Initialize the final DataFrame
-    final_df = None
-
-    # Loop through each CSV file
-    for idx, file_name in enumerate(csv_files):
-        file_path = os.path.join(dataset_file, file_name)
-        df = pd.read_csv(file_path)
-
-        if idx == 0:
-            # Include all columns from the first CSV file except specified ones
-            final_df = df[df.columns.drop(["system_prompt", "user_prompt"])]
+def process_text(df, model, output_file_path, system_prompt, user_prompt):
+    """Processes text using the appropriate function based on the model."""
+    try:
+        logging.info("Starting text processing.")
+        if model == "claude-3-haiku-20240307":
+            sequential_text_processing_claude(
+                dataframe=df.copy(),
+                col_with_content="content",
+                column="generated_pred",
+                filename=output_file_path,
+                model=model,
+                system_prompt=system_prompt,
+                user_prompt=user_prompt
+            )
         else:
-            # Add the specified columns from subsequent CSVs if they exist
-            if ensemble:
-                for col in required_columns:
-                    final_column = "pred_with_" + col
-                    if final_column in df.columns:
-                        final_df[final_column] = df[final_column]
-            else:
-                for col in required_columns:
-                    if col in df.columns:
-                        final_df[col] = df[col]
-
-    return final_df
+            parallel_text_processing(
+                dataframe=df.copy(),
+                col_with_content="content",
+                column="generated_pred",
+                filename=output_file_path,
+                model=model,
+                system_prompt=system_prompt,
+                user_prompt=user_prompt
+            )
+        logging.info(f"Processing completed successfully. Results saved to: {output_file_path}")
+    except Exception as e:
+        logging.error("An error occurred during text processing.", exc_info=True)
