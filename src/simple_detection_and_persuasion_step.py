@@ -1,11 +1,9 @@
-import pandas as pd
 import argparse
 import logging
 from datetime import datetime
-import os
 from utils.utils import (
-    parallel_text_processing, load_prompts_simple_detection, load_prompts_persuasion_knowledge_infusion,
-    load_high_level_persuasion_groups
+    parallel_text_processing, load_prompts_simple_detection,
+    load_prompts_persuasion_knowledge_infusion, sequential_text_processing_claude, setup_logging, read_csv_file
 )
 
 
@@ -37,113 +35,97 @@ def main():
     prompt_type = args.prompt_type
 
     # Configure logging
-    if model == "meta-llama/Llama-3.3-70B-Instruct-Turbo":
-        log_filename = (
-            f"Llama-3_3_70B_instruct_turbo/logging/simple_detection_and_persuasion_step/{dataset_file}/{method_type}/"
-            f"logs_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.log"
-        )
-        log_dir = os.path.dirname(log_filename)
-        os.makedirs(log_dir, exist_ok=True)
-    elif model == "gpt-4o-mini":
-        log_filename = (
-                f"gpt4o-mini/logging/simple_detection_and_persuasion_step/"
-                f"logs_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.log"
-            )
-        log_dir = os.path.dirname(log_filename)
-        os.makedirs(log_dir, exist_ok=True)
-    else:
-        raise ValueError(f"""
-        Model '{model}' not tested for this experiment. Please choose between belows models: 
-        - "gpt-4o-mini" 
-        - "meta-llama/Llama-3.3-70B-Instruct-Turbo" 
-        or modify scripts to run it on other models""")
-
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s - %(levelname)s - %(message)s",
-        handlers=[
-            logging.FileHandler(log_filename)
-        ]
+    log_dir_part = dataset_file.replace("test.csv", "")
+    log_filename = (
+        f"{model}/logging/{method_type}/{log_dir_part}/"
+        f"logs_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.log"
     )
 
-    logging.info(f"Script started with the following parameters:")
-    logging.info(f"Test file path: {dataset_file}")
-    logging.info(f"Model: {model}")
-    logging.info(f"Output file path: {output_file_path}")
+    setup_logging(
+        log_filename=log_filename,
+        dataset_file=dataset_file,
+        model=model,
+        output_file_path=output_file_path
+    )
 
     # Read the CSV file
-    try:
-        df = pd.read_csv(dataset_file)
-        logging.info(f"Successfully read the file: {dataset_file}")
-        logging.info(f"DataFrame shape: {df.shape}")
-    except FileNotFoundError:
-        logging.error(f"File not found: {dataset_file}")
-        exit(1)  # Exit the script if the file is not found
-    except Exception as e:
-        logging.error("An error occurred while reading the CSV file.", exc_info=True)
-        exit(1)  # Exit the script if there's any other error
+    df = read_csv_file(dataset_file)
 
     # Load prompts based on the provided arguments
     try:
-        if method_type == "simple_detection":
+        if method_type == "simple_detection" or method_type == "simple_detection_with_persuasion":
             logging.info(f"Loading prompts using `load_prompts` with type: {prompt_type}")
             system_prompt, user_prompt = load_prompts_simple_detection(
                 prompts_file_path=prompts_file_path,
                 prompt_type=prompt_type
             )
-            # Call the function with parallelization
-            try:
-                logging.info("Starting text processing with parallelization.")
-                parallel_text_processing(
-                    dataframe=df.copy(),
-                    col_with_content="content",
-                    column="generated_pred",
-                    filename=output_file_path,
-                    model=model,
-                    system_prompt=system_prompt,
-                    user_prompt=user_prompt
-                )
-                logging.info(f"Processing completed successfully. Results saved to: {output_file_path}")
-            except Exception as e:
-                logging.error("An error occurred during text processing.", exc_info=True)
-        elif method_type == "pcot_one_multistep" or method_type == "pcot_one_detailed_multistep":
-            logging.info("Loading prompts using `load_prompts_persuasion_one_multistep`.")
-            system_prompt, user_prompt = load_prompts_persuasion_knowledge_infusion(
-                prompts_file_path=prompts_file_path,
-                method_type=method_type
-            )
-            # Call the function with parallelization
-            try:
-                logging.info("Starting text processing with parallelization.")
-                parallel_text_processing(
-                    dataframe=df.copy(),
-                    col_with_content="content",
-                    column="generated_pred",
-                    filename=output_file_path,
-                    model=model,
-                    system_prompt=system_prompt,
-                    user_prompt=user_prompt
-                )
-                logging.info(f"Processing completed successfully. Results saved to: {output_file_path}")
-            except Exception as e:
-                logging.error("An error occurred during text processing.", exc_info=True)
-        elif method_type == "pcot_one_task_at_a_time" or method_type == "pcot_one_detailed_task_at_a_time":
-            high_level_persuasion_groups = load_high_level_persuasion_groups(config_file_path="persuasion_groups.yaml")
 
-            for persuasion_group in high_level_persuasion_groups:
-                logging.info("Loading prompts using `load_prompts_persuasion_knowledge_infusion`.")
-                system_prompt, user_prompt = load_prompts_persuasion_knowledge_infusion(
-                    prompts_file_path=prompts_file_path,
-                    method_type=method_type,
-                    persuasion_group=persuasion_group
-                )
+            if model != "claude-3-haiku-20240307":
+                # Call the function with parallelization
                 try:
                     logging.info("Starting text processing with parallelization.")
                     parallel_text_processing(
                         dataframe=df.copy(),
                         col_with_content="content",
-                        column=persuasion_group,
-                        filename=output_file_path.rsplit('.', 1)[0] + "_" + persuasion_group + ".csv",
+                        column="generated_pred",
+                        filename=output_file_path,
+                        model=model,
+                        system_prompt=system_prompt,
+                        user_prompt=user_prompt
+                    )
+                    logging.info(f"Processing completed successfully. Results saved to: {output_file_path}")
+                except Exception as e:
+                    logging.error("An error occurred during text processing.", exc_info=True)
+            elif model in ["claude-3-haiku-20240307"]:
+                # Call the function with parallelization
+                try:
+                    logging.info("Starting text processing with parallelization.")
+                    sequential_text_processing_claude(
+                        dataframe=df.copy(),
+                        col_with_content="content",
+                        column="generated_pred",
+                        filename=output_file_path,
+                        model=model,
+                        system_prompt=system_prompt,
+                        user_prompt=user_prompt
+                    )
+                    logging.info(f"Processing completed successfully. Results saved to: {output_file_path}")
+                except Exception as e:
+                    logging.error("An error occurred during text processing.", exc_info=True)
+        elif method_type == "pcot_one_multistep" or method_type == "pcot_one_detailed_multistep" or method_type == "pcot_one_detailed_multistep_no_exp_final":
+
+            logging.info("Loading prompts using `load_prompts_persuasion_one_multistep`.")
+            system_prompt, user_prompt = load_prompts_persuasion_knowledge_infusion(
+                prompts_file_path=prompts_file_path,
+                method_type=method_type
+            )
+            if model != "claude-3-haiku-20240307":
+                # Call the function with parallelization
+                try:
+                    logging.info("Starting text processing with parallelization.")
+                    parallel_text_processing(
+                        dataframe=df.copy(),
+                        col_with_content="content",
+                        column="generated_pred",
+                        filename=output_file_path,
+                        model=model,
+                        system_prompt=system_prompt,
+                        user_prompt=user_prompt
+                    )
+                    logging.info(f"Processing completed successfully. Results saved to: {output_file_path}")
+                except Exception as e:
+                    logging.error("An error occurred during text processing.", exc_info=True)
+
+            else:
+
+                # Call the function with parallelization
+                try:
+                    logging.info("Starting text processing with parallelization.")
+                    sequential_text_processing_claude(
+                        dataframe=df.copy(),
+                        col_with_content="content",
+                        column="generated_pred",
+                        filename=output_file_path,
                         model=model,
                         system_prompt=system_prompt,
                         user_prompt=user_prompt
