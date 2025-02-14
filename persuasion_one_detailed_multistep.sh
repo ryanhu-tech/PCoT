@@ -2,17 +2,17 @@
 
 # Define models (comment out the ones you don't want to use)
 models=(
-    "meta-llama/Meta-Llama-3.1-8B-Instruct"
-    "gemini-1.5-flash"
     "gpt-4o-mini"
+    "gemini-1.5-flash"
+    "meta-llama/Meta-Llama-3.1-8B-Instruct"
     "meta-llama/Llama-3.3-70B-Instruct-Turbo"
     "claude-3-haiku-20240307"
 )
 
-prompts_file_path="prompts/simple_detection.yaml"
-method_type="simple_detection"
+prompts_file_path="prompts/persuasion_knowledge_infusion.yaml"
+method_type="pcot_one_detailed_multistep"
 
-# Define common datasets
+# Define datasets
 declare -a datasets=(
     "data/CoAID/test.csv"
 #    "data/ISOTFakeNews/test.csv"
@@ -21,39 +21,35 @@ declare -a datasets=(
 #    "data/ECTF/test.csv"
 )
 
-# Define prompt types
-declare -a prompt_types=("VaN" "Z-CoT" "DeF_Spec")
-
 # Function to run the script
 run_script() {
     local dataset_file=$1
-    local prompt_type=$2
-    local model=$3
+    local model=$2
 
     # Generate output file path
     local parent_dir
     parent_dir=$(basename "$(dirname "$dataset_file")")
+
     local output_file
 
-    output_file="$model/results/$parent_dir/Simple_Detection/$prompt_type/simple_detection.csv"
+    output_file="$model/results/$parent_dir/PCoT_One_Detailed_MultiStep/persuasion_and_explanation.csv"
 
-    echo "Processing: $dataset_file with prompt type $prompt_type on model $model..."
+
+    echo "Processing: $dataset_file with prompt to generate persuasion analysis on model $model..."
+    # Run the Python script
     uv run src/simple_detection_and_persuasion_step.py \
         -dataset_file "$dataset_file" \
         -model "$model" \
         -output "$output_file" \
         -prompts_file_path "$prompts_file_path" \
-        -prompt_type "$prompt_type" \
         -method_type "$method_type"
 }
 
-# Main loop to execute tasks
+# Loop through datasets
 for model in "${models[@]}"; do
-    for prompt_type in "${prompt_types[@]}"; do
-        for dataset_file in "${datasets[@]}"; do
-            run_script "$dataset_file" "$prompt_type" "$model"
-        done
-    done
+  for dataset_file in "${datasets[@]}"; do
+    run_script "$dataset_file" "$model"
+  done
 done
 
 echo "All tasks completed."

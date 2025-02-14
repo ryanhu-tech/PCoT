@@ -1,24 +1,23 @@
 #!/opt/homebrew/bin/bash
 
-# Define models (comment out the ones you don't want to use)
 models=(
-    "meta-llama/Meta-Llama-3.1-8B-Instruct"
     "gemini-1.5-flash"
+    "meta-llama/Meta-Llama-3.1-8B-Instruct"
     "gpt-4o-mini"
     "meta-llama/Llama-3.3-70B-Instruct-Turbo"
     "claude-3-haiku-20240307"
 )
 
-prompts_file_path="prompts/simple_detection.yaml"
-method_type="simple_detection"
+prompts_file_path="prompts/one_prompt.yaml"
+method_type="simple_detection_with_persuasion"
 
 # Define common datasets
 declare -a datasets=(
     "data/CoAID/test.csv"
-#    "data/ISOTFakeNews/test.csv"
-#    "data/MultiDis/test.csv"
-#    "data/EUDisinfo/test.csv"
-#    "data/ECTF/test.csv"
+    "data/ISOTFakeNews/test.csv"
+    "data/MultiDis/test.csv"
+    "data/EUDisinfo/test.csv"
+    "data/ECTF/test.csv"
 )
 
 # Define prompt types
@@ -35,7 +34,8 @@ run_script() {
     parent_dir=$(basename "$(dirname "$dataset_file")")
     local output_file
 
-    output_file="$model/results/$parent_dir/Simple_Detection/$prompt_type/simple_detection.csv"
+    output_file="$model/results/$parent_dir/Simple_Detection_with_Persuasion/$prompt_type/simple_detection.csv"
+
 
     echo "Processing: $dataset_file with prompt type $prompt_type on model $model..."
     uv run src/simple_detection_and_persuasion_step.py \
