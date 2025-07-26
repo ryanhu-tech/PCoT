@@ -83,5 +83,6 @@ For more details, refer to the paper.
 
 
 ## License
-This project is licensed under the terms of the MIT License. See `LICENSE.txt` for details.
+This codebase is licensed under the terms of the MIT License. 
+Our novel two datasets are licensed under Attribution-NonCommercial-NoDerivatives 4.0 International - See `LICENSE.txt` for details.
 
