@@ -2,11 +2,11 @@
 
 # Define models (comment out the ones you don't want to use)
 models=(
-    "gpt-4o-mini"
-    "gemini-1.5-flash"
-    "meta-llama/Meta-Llama-3.1-8B-Instruct"
-    "meta-llama/Llama-3.3-70B-Instruct-Turbo"
-    "claude-3-haiku-20240307"
+    #"gpt-4o-mini"
+    #"gemini-1.5-flash"
+    "/mnt/c/vscode/models/Meta-Llama-3.1-8B-Instruct"
+    #"meta-llama/Llama-3.3-70B-Instruct-Turbo"
+    #"claude-3-haiku-20240307"
 )
 
 prompts_file_path="prompts/persuasion_knowledge_infusion.yaml"
@@ -21,34 +21,22 @@ declare -a datasets=(
 #    "data/ECTF/test.csv"
 )
 
-# Function to run the script
-run_script() {
-    local dataset_file=$1
-    local model=$2
-
-    # Generate output file path
-    local parent_dir
+# Loop through datasets
+for model in "${models[@]}"; do
+  for dataset_file in "${datasets[@]}"; do
+    # Generate output file path from dataset file
     parent_dir=$(basename "$(dirname "$dataset_file")")
-
-    local output_file
-
     output_file="$model/results/$parent_dir/PCoT_One_Detailed_MultiStep/persuasion_and_explanation.csv"
 
-
     echo "Processing: $dataset_file with prompt to generate persuasion analysis on model $model..."
+
     # Run the Python script
     uv run src/simple_detection_and_persuasion_step.py \
         -dataset_file "$dataset_file" \
         -model "$model" \
-        -output "$output_file" \
+        -output_file_path "$output_file" \
         -prompts_file_path "$prompts_file_path" \
         -method_type "$method_type"
-}
-
-# Loop through datasets
-for model in "${models[@]}"; do
-  for dataset_file in "${datasets[@]}"; do
-    run_script "$dataset_file" "$model"
   done
 done
 

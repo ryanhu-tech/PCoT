@@ -9,6 +9,8 @@ import concurrent.futures
 from tqdm import tqdm
 from openai import OpenAI
 from dotenv import load_dotenv
+import torch
+from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
 from sklearn.metrics import f1_score
 import google.generativeai as genai
 
@@ -62,9 +64,12 @@ def client_instance(model):
     if model in ["gpt-4o-mini"]:
         client = OpenAI(api_key=OPENAI_API_KEY)
         return client
-    elif model in ["meta-llama/Llama-3.3-70B-Instruct-Turbo", "meta-llama/Meta-Llama-3.1-8B-Instruct"]:
+    # Check if the model is a local directory path first
+    elif os.path.isdir(model):
+        return "local_llama"
+    elif model in ["meta-llama/Llama-3.3-70B-Instruct-Turbo"]:
         client = OpenAI(api_key=DEEPINFRA_API_KEY, base_url="https://api.deepinfra.com/v1/openai")
-        return client
+        return client    
     elif model == "claude-3-haiku-20240307":
         client = anthropic.Anthropic(api_key=CLAUDE_API_KEY)
         return client
@@ -120,6 +125,36 @@ def process_text_with_model(index, text, model, system_prompt, user_prompt):
 
         else:
             client = client_instance(model=model)
+            if client == "local_llama":
+                model_path = model # Use the path passed from the shell script
+                tokenizer = AutoTokenizer.from_pretrained(model_path)
+                # The model will be loaded in 8-bit to reduce memory usage.
+                # If you have enough VRAM, you can remove `load_in_8bit=True`.
+                # If you don't have a GPU, you can remove `device_map="auto"`.
+                model_obj = AutoModelForCausalLM.from_pretrained(
+                    model_path,
+                    device_map="auto",
+                    dtype=torch.bfloat16,
+                    load_in_8bit=True 
+                )
+                pipe = pipeline("text-generation", model=model_obj, tokenizer=tokenizer)
+                
+                messages = [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ]
+                # Apply the chat template for the prompt
+                prompt = pipe.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+                outputs = pipe(prompt, max_new_tokens=2048, do_sample=False, temperature=TEMPERATURE, top_p=0.95)
+                completion_text = outputs[0]["generated_text"][len(prompt):]
+
+                result = {
+                    "index": index,
+                    "system_prompt": system_prompt,
+                    "user_prompt": user_prompt,
+                    "completion": completion_text,
+                }
+                return result
             completion = client.chat.completions.create(
                 model=model,
                 messages=[
@@ -340,6 +375,30 @@ def process_pcot_multistep_or_ensemble(index, text, persuasion, model, dataframe
             return index, response.text
         else:
             client = client_instance(model=model)
+            if client == "local_llama":
+                model_path = "C:/vscode/models"
+                tokenizer = AutoTokenizer.from_pretrained(model_path)
+                model_obj = AutoModelForCausalLM.from_pretrained(
+                    model_path,
+                    device_map="auto",
+                    dtype=torch.bfloat16,
+                    load_in_8bit=True
+                )
+                pipe = pipeline("text-generation", model=model_obj, tokenizer=tokenizer)
+
+                messages = [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ]
+                prompt = pipe.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+                outputs = pipe(prompt, max_new_tokens=2048, do_sample=False, temperature=TEMPERATURE, top_p=0.95)
+                completion_text = outputs[0]["generated_text"][len(prompt):]
+
+                dataframe.iloc[index, dataframe.columns.get_loc("system_prompt")] = system_prompt
+                dataframe.iloc[index, dataframe.columns.get_loc("user_prompt")] = user_prompt
+                dataframe.iloc[index, dataframe.columns.get_loc(column)] = completion_text
+                return index, completion_text
+
             completion = client.chat.completions.create(
                 model=model,
                 messages=[
