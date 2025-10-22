@@ -3,27 +3,16 @@ import os
 import time
 import yaml
 import logging
-import anthropic
 import pandas as pd
-import concurrent.futures
 from tqdm import tqdm
-from openai import OpenAI
 from dotenv import load_dotenv
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
 from transformers import BitsAndBytesConfig
-import google.generativeai as genai
 
 # Load environment variables from .env file
 load_dotenv()
 TEMPERATURE = 0.0
-#
-# Retrieve API keys from environment variables
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-DEEPINFRA_API_KEY = os.getenv("DEEPINFRA_API_KEY")
-DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-CLAUDE_API_KEY = os.getenv("CLAUDE_API_KEY")
 
 
 def read_csv_file(dataset_file):
@@ -61,18 +50,12 @@ def setup_logging(log_filename, dataset_file, model, output_file_path):
 
 
 def client_instance(model):
-    if model in ["gpt-4o-mini"]:
-        client = OpenAI(api_key=OPENAI_API_KEY)
-        return client
-    # Check if the model is a local directory path first
-    elif os.path.isdir(model):
+    # Check if the model is a local directory path
+    if os.path.isdir(model):
         return "local_llama"
-    elif model in ["meta-llama/Llama-3.3-70B-Instruct-Turbo"]:
-        client = OpenAI(api_key=DEEPINFRA_API_KEY, base_url="https://api.deepinfra.com/v1/openai")
-        return client    
-    elif model == "claude-3-haiku-20240307":
-        client = anthropic.Anthropic(api_key=CLAUDE_API_KEY)
-        return client
+    # If it's not a local model path, it's an unsupported model type.
+    logging.error(f"Unsupported model type: {model}. This setup is for local models only.")
+    exit(1)
 
 
 class LocalModelManager:
@@ -132,147 +115,30 @@ def process_text_with_model(index, text, model, system_prompt, user_prompt):
     """
     try:
         user_prompt = user_prompt + f" Text:{text}. Answer:"
-        if model == "gemini-1.5-flash":
-            genai.configure(api_key=GEMINI_API_KEY)
-            if system_prompt:
-                model = genai.GenerativeModel(
-                    model_name="gemini-1.5-flash",
-                    system_instruction=system_prompt)
-            else:
-                model = genai.GenerativeModel(
-                    model_name="gemini-1.5-flash")
-            response = model.generate_content(
-                user_prompt,
-                generation_config=genai.GenerationConfig(
-                    temperature=TEMPERATURE,
-                )
-            )
+        client = client_instance(model=model)
+        if client == "local_llama":
+            # Get the shared pipeline instance from the manager
+            pipe = LocalModelManager().load_model(model)
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ]
+            # Apply the chat template for the prompt
+            prompt = pipe.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+            outputs = pipe(prompt, max_new_tokens=2048, do_sample=False, temperature=TEMPERATURE, top_p=0.95)
+            completion_text = outputs[0]["generated_text"][len(prompt):]
+
             result = {
                 "index": index,
                 "system_prompt": system_prompt,
                 "user_prompt": user_prompt,
-                "completion": response.text,
-            }
-            return result
-
-        else:
-            client = client_instance(model=model)
-            if client == "local_llama":
-                # Get the shared pipeline instance from the manager
-                pipe = LocalModelManager().load_model(model)
-                messages = [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ]
-                # Apply the chat template for the prompt
-                prompt = pipe.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
-                outputs = pipe(prompt, max_new_tokens=2048, do_sample=False, temperature=TEMPERATURE, top_p=0.95)
-                completion_text = outputs[0]["generated_text"][len(prompt):]
-
-                result = {
-                    "index": index,
-                    "system_prompt": system_prompt,
-                    "user_prompt": user_prompt,
-                    "completion": completion_text,
-                }
-                return result
-            completion = client.chat.completions.create(
-                model=model,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
-                temperature=TEMPERATURE
-            )
-            result = {
-                "index": index,
-                "system_prompt": system_prompt,
-                "user_prompt": user_prompt,
-                "completion": completion.choices[0].message.content,
+                "completion": completion_text,
             }
             return result
     except Exception as e:
         print(f"Error processing row {index}: {e}")
         time.sleep(2)  # To avoid rapid retries in case of API issues
         return {"index": index, "system_prompt": None, "user_prompt": None, "completion": None}
-
-
-def process_text_with_model_claude(index, text, model, system_prompt, user_prompt):
-    """
-    Processes a single text using the model and returns the result.
-    """
-    try:
-        client = client_instance(model=model)
-        user_prompt = user_prompt + f" Text:{text}. Answer:"
-
-        completion = client.messages.create(
-            model=model,
-            max_tokens=4096,
-            temperature=TEMPERATURE,
-            system=system_prompt,
-            messages=[
-                {"role": "user", "content": user_prompt}
-            ]
-        )
-
-        result = {
-            "index": index,
-            "system_prompt": system_prompt,
-            "user_prompt": user_prompt,
-            "completion": completion.content[0].text,
-        }
-        return result
-    except Exception as e:
-        print(f"Error processing row {index}: {e}")
-        time.sleep(2)  # Delay before retrying in case of API issues
-        return None
-
-
-def sequential_text_processing_claude(dataframe, col_with_content, column, filename, model, system_prompt, user_prompt):
-    """
-    Processes texts in the dataframe sequentially and respects a rate limit of 50 requests per minute.
-    """
-    # Ensure the column exists
-    dataframe["system_prompt"] = None
-    dataframe["user_prompt"] = None
-    dataframe[column] = None
-
-    # Ensure the directory for the file exists
-    os.makedirs(os.path.dirname(filename), exist_ok=True)
-
-    # Pre-load the model if it's a local model to avoid loading it in each thread
-    if client_instance(model) == "local_llama":
-        LocalModelManager().load_model(model)
-
-
-    results = []
-    request_count = 0
-    start_time = time.time()
-
-    for index, text in tqdm(enumerate(dataframe[col_with_content]), total=len(dataframe)):
-        # Check if we need to respect the rate limit
-        elapsed_time = time.time() - start_time
-        if request_count >= 50 and elapsed_time < 60:
-            sleep_time = 60 - elapsed_time
-            print(f"Rate limit reached. Sleeping for {sleep_time:.2f} seconds...")
-            time.sleep(sleep_time)
-            start_time = time.time()
-            request_count = 0
-
-        # Process the text
-        result = process_text_with_model_claude(index, text, model, system_prompt, user_prompt)
-        if result:
-            results.append(result)
-            request_count += 1
-
-    # Update the DataFrame after all requests have been processed
-    for result in results:
-        dataframe.at[result["index"], "system_prompt"] = result["system_prompt"]
-        dataframe.at[result["index"], "user_prompt"] = result["user_prompt"]
-        dataframe.at[result["index"], column] = result["completion"]
-
-    # Save the DataFrame
-    dataframe.to_csv(filename, index=False)
 
 
 def sequential_text_processing(dataframe, col_with_content, column, filename, model, system_prompt, user_prompt):
@@ -383,131 +249,35 @@ def process_pcot_multistep_or_ensemble(index, text, persuasion, model, dataframe
     try:
         user_prompt = user_part_1 + persuasion + "\n" + user_part_2 + f""" Text:{text}. Answer:"""
 
-        if model == "gemini-1.5-flash":
-            genai.configure(api_key=GEMINI_API_KEY)
-            model = genai.GenerativeModel(
-                model_name="gemini-1.5-flash",
-                system_instruction=system_prompt)
-            response = model.generate_content(
-                user_prompt,
-                generation_config=genai.GenerationConfig(
-                    temperature=TEMPERATURE,
-                )
-            )
+        client = client_instance(model=model)
+        if client == "local_llama":
+            # Get the shared pipeline instance from the manager
+            pipe = LocalModelManager().load_model(model)
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ]
+            prompt = pipe.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+            outputs = pipe(prompt, max_new_tokens=2048, do_sample=False, temperature=TEMPERATURE, top_p=0.95)
+            completion_text = outputs[0]["generated_text"][len(prompt):]
+
             dataframe.iloc[index, dataframe.columns.get_loc("system_prompt")] = system_prompt
             dataframe.iloc[index, dataframe.columns.get_loc("user_prompt")] = user_prompt
-            dataframe.iloc[index, dataframe.columns.get_loc(column)] = response.text
-            return index, response.text
-        else:
-            client = client_instance(model=model)
-            if client == "local_llama":
-                # Get the shared pipeline instance from the manager
-                pipe = LocalModelManager().load_model(model)
-                messages = [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ]
-                prompt = pipe.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
-                outputs = pipe(prompt, max_new_tokens=2048, do_sample=False, temperature=TEMPERATURE, top_p=0.95)
-                completion_text = outputs[0]["generated_text"][len(prompt):]
+            dataframe.iloc[index, dataframe.columns.get_loc(column)] = completion_text
+            return index, completion_text
 
-                dataframe.iloc[index, dataframe.columns.get_loc("system_prompt")] = system_prompt
-                dataframe.iloc[index, dataframe.columns.get_loc("user_prompt")] = user_prompt
-                dataframe.iloc[index, dataframe.columns.get_loc(column)] = completion_text
-                return index, completion_text
-
-            completion = client.chat.completions.create(
-                model=model,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt}
-                ],
-                temperature=TEMPERATURE
-            )
-            dataframe.iloc[index, dataframe.columns.get_loc("system_prompt")] = system_prompt
-            dataframe.iloc[index, dataframe.columns.get_loc("user_prompt")] = user_prompt
-            dataframe.iloc[index, dataframe.columns.get_loc(column)] = completion.choices[0].message.content
-            return index, completion.choices[0].message.content
     except Exception as e:
         print(f"Error processing row {index}: {e}")
         time.sleep(3)
         return None
 
 
-# Assuming the client_instance and other imports/functions are already defined
-def process_pcot_multistep_or_ensemble_claude(index, text, persuasion, model, dataframe, column, system_prompt,
-                                              user_part_1, user_part_2):
-    """
-    Process a single row of the dataframe with the given parameters and API request.
-    """
-    try:
-        user_prompt = user_part_1 + persuasion + "\n" + user_part_2 + f" Text:{text}. Answer:"
-        client = client_instance(model=model)
-        completion = client.messages.create(
-            model=model,
-            max_tokens=4096,
-            temperature=TEMPERATURE,
-            system=system_prompt,
-            messages=[
-                {"role": "user", "content": user_prompt}
-            ]
-        )
-        dataframe.iloc[index, dataframe.columns.get_loc("system_prompt")] = system_prompt
-        dataframe.iloc[index, dataframe.columns.get_loc("user_prompt")] = user_prompt
-        dataframe.iloc[index, dataframe.columns.get_loc(column)] = completion.content[0].text
-        return index, completion.content[0].text
-    except Exception as e:
-        print(f"Error processing row {index}: {e}")
-        time.sleep(3)  # Small delay to handle transient errors
-        return None
-
-
-def sequential_pcot_claude(dataframe, col_with_content, column, filename, model, system_prompt,
-                           user_part_1, user_part_2, generated_persuasion_analysis=None):
-    """
-    Sequential version of pcot_one_multistep with rate limiting.
-    """
-    # Ensure the columns exist
-    dataframe["system_prompt"] = None
-    dataframe["user_prompt"] = None
-    dataframe[column] = None
-
-    # Ensure the directory for the file exists
-    os.makedirs(os.path.dirname(filename), exist_ok=True)
-
-    start_time = time.time()
-    request_count = 0
-
-    for it, (text, persuasion) in tqdm(
-            enumerate(zip(dataframe[col_with_content], dataframe[generated_persuasion_analysis])),
-            total=len(dataframe)):
-
-        process_pcot_multistep_or_ensemble_claude(it, text, persuasion, model, dataframe, column, system_prompt,
-                                                  user_part_1, user_part_2)
-
-        # Increment the request count
-        request_count += 1
-
-        # Check if we've hit the 50-requests-per-minute limit
-        if request_count >= 50:
-            elapsed_time = time.time() - start_time
-            if elapsed_time < 60:
-                time_to_wait = 60 - elapsed_time
-                print(f"Rate limit reached. Waiting for {time_to_wait:.2f} seconds...")
-                time.sleep(time_to_wait)
-            # Reset the counter and start time
-            request_count = 0
-            start_time = time.time()
-
-    # Save the results to a CSV
-    dataframe.to_csv(filename, index=False)
-
-    return dataframe
-
-
 def pcot_one_task(index, text, first_explanation, second_explanation, third_explanation, fourth_explanation,
                   fifth_explanation, sixth_explanation, model, dataframe, column,
                   system_prompt, user_part_1, user_part_2):
+    """
+    Process a single row of the dataframe with the given parameters and API request.
+    """
     try:
         user_prompt = f"""{user_part_1}
                  Analysis of the high-level persuasion strategy known as 'Attack on Reputation':
@@ -523,19 +293,21 @@ def pcot_one_task(index, text, first_explanation, second_explanation, third_expl
                  Analysis of the high-level persuasion strategy known as 'Manipulative wording'
                  {sixth_explanation}
                  {user_part_2} Text:{text}. Answer:"""
-        client = client_instance(model=model)
-        completion = client.chat.completions.create(
-            model=model,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt}
-            ],
-            temperature=TEMPERATURE
-        )
+        
+        # Since we are only using local models, we can directly use the local model logic.
+        pipe = LocalModelManager().load_model(model)
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ]
+        prompt = pipe.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+        outputs = pipe(prompt, max_new_tokens=2048, do_sample=False, temperature=TEMPERATURE, top_p=0.95)
+        completion_text = outputs[0]["generated_text"][len(prompt):]
+
         dataframe.iloc[index, dataframe.columns.get_loc("system_prompt")] = system_prompt
         dataframe.iloc[index, dataframe.columns.get_loc("user_prompt")] = user_prompt
-        dataframe.iloc[index, dataframe.columns.get_loc(column)] = completion.choices[0].message.content
-        return index, completion.choices[0].message.content
+        dataframe.iloc[index, dataframe.columns.get_loc(column)] = completion_text
+        return index, completion_text
     except Exception as e:
         print(f"Error processing row {index}: {e}")
         time.sleep(3)
@@ -591,26 +363,15 @@ def process_text(df, model, output_file_path, system_prompt, user_prompt):
     """Processes text using the appropriate function based on the model."""
     try:
         logging.info("Starting text processing.")
-        if model == "claude-3-haiku-20240307":
-            sequential_text_processing_claude(
-                dataframe=df.copy(),
-                col_with_content="content",
-                column="generated_pred",
-                filename=output_file_path,
-                model=model,
-                system_prompt=system_prompt,
-                user_prompt=user_prompt
-            )
-        else:
-            sequential_text_processing(
-                dataframe=df.copy(),
-                col_with_content="content",
-                column="generated_pred",
-                filename=output_file_path,
-                model=model,
-                system_prompt=system_prompt,
-                user_prompt=user_prompt
-            )
+        sequential_text_processing(
+            dataframe=df.copy(),
+            col_with_content="content",
+            column="generated_pred",
+            filename=output_file_path,
+            model=model,
+            system_prompt=system_prompt,
+            user_prompt=user_prompt
+        )
         logging.info(f"Processing completed successfully. Results saved to: {output_file_path}")
     except Exception as e:
         logging.error("An error occurred during text processing.", exc_info=True)

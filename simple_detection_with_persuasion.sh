@@ -4,11 +4,7 @@
 GPU_ID=3
 
 models=(
-    "gemini-1.5-flash"
     "/workspace/models/Llama-3.1-8B-Instruct"
-    "gpt-4o-mini"
-    "meta-llama/Llama-3.3-70B-Instruct-Turbo"
-    "claude-3-haiku-20240307"
 )
 
 prompts_file_path="prompts/one_prompt.yaml"

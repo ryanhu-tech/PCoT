@@ -8,11 +8,7 @@ USE_VLLM=true
 
 # Define models (comment out the ones you don't want to use)
 models=(
-#    "gpt-4o-mini"
-#    "meta-llama/Llama-3.3-70B-Instruct-Turbo"
-#    "gemini-1.5-flash"
     "/workspace/models/Llama-3.1-8B-Instruct"
-#    "claude-3-haiku-20240307"
 )
 
 prompts_file_path="prompts/pcot_final_step.yaml"

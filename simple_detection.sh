@@ -5,11 +5,7 @@ GPU_ID=3
 
 # Define models (comment out the ones you don't want to use)
 models=(
-    "meta-llama/Meta-Llama-3.1-8B-Instruct"
-    "gemini-1.5-flash"
-    "gpt-4o-mini"
-    "meta-llama/Llama-3.3-70B-Instruct-Turbo"
-    "claude-3-haiku-20240307"
+    "/workspace/models/Llama-3.1-8B-Instruct"
 )
 
 prompts_file_path="prompts/simple_detection.yaml"

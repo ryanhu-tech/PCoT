@@ -3,7 +3,7 @@ import os
 import logging 
 from datetime import datetime
 from utils.utils import (
-    sequential_pcot, load_prompts_pcot_one_multistep, sequential_pcot_claude, setup_logging, read_csv_file
+    sequential_pcot, load_prompts_pcot_one_multistep, setup_logging, read_csv_file
 )
 
 
@@ -32,32 +32,20 @@ def process_data(df, model, method_type, output_file_path, system_prompt, user_p
     """Processes data based on the model type."""
     try:
         logging.info("Starting text processing.")
-        if model != "claude-3-haiku-20240307":
-            sequential_pcot(
-                dataframe=df.copy(),
-                method_type=method_type,
-                col_with_content="content",
-                generated_persuasion_analysis="generated_pred",
-                column="final_pred",
-                filename=output_file_path,
-                model=model,
-                system_prompt=system_prompt,
-                user_part_1=user_prompt_1,
-                user_part_2=user_prompt_2,
-                use_vllm=use_vllm
-            )
-        else:
-            sequential_pcot_claude(
-                dataframe=df.copy(),
-                col_with_content="content",
-                generated_persuasion_analysis="generated_pred",
-                column="final_pred",
-                filename=output_file_path,
-                model=model,
-                system_prompt=system_prompt,
-                user_part_1=user_prompt_1,
-                user_part_2=user_prompt_2
-            )
+        sequential_pcot(
+            dataframe=df.copy(),
+            method_type=method_type,
+            col_with_content="content",
+            generated_persuasion_analysis="generated_pred",
+            column="final_pred",
+            filename=output_file_path,
+            model=model,
+            system_prompt=system_prompt,
+            user_part_1=user_prompt_1,
+            user_part_2=user_prompt_2,
+            # The use_vllm parameter is passed but not used in the sequential_pcot function.
+            # It can be removed if vLLM is not part of the sequential local model setup.
+        )
         logging.info(f"Processing completed successfully. Results saved to: {output_file_path}")
     except Exception as e:
         logging.error("An error occurred during text processing.", exc_info=True)
