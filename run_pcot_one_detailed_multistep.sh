@@ -1,11 +1,17 @@
 #!/opt/homebrew/bin/bash
 
+# --- 指定要使用的 GPU ID (例如 0, 1, 2, 3) ---
+GPU_ID=3
+
+# --- 是否使用 vLLM (設為 true 來啟用) ---
+USE_VLLM=true
+
 # Define models (comment out the ones you don't want to use)
 models=(
 #    "gpt-4o-mini"
 #    "meta-llama/Llama-3.3-70B-Instruct-Turbo"
 #    "gemini-1.5-flash"
-    "meta-llama/Meta-Llama-3.1-8B-Instruct"
+    "/workspace/models/Llama-3.1-8B-Instruct"
 #    "claude-3-haiku-20240307"
 )
 
@@ -30,27 +36,30 @@ run_script() {
     local model=$3
 
     # Generate output file path
-    local parent_dir
-    parent_dir=$(dirname "$dataset_file")
+    model_name_for_path=$(basename "$model")
+    # Extract the dataset name (e.g., CoAID) from the input file path
+    local dataset_name=$(echo "$dataset_file" | awk -F/ '{print $(NF-2)}')
 
     local output_file
-    output_file="$parent_dir/$prompt_type/final.csv"
+    output_file="results/$model_name_for_path/$dataset_name/PCoT_One_Detailed_MultiStep/$prompt_type/final.csv"
 
 
     echo "Processing: $dataset_file with prompt type $prompt_type on model $model..."
-    uv run src/pcot_final.py \
+    CUDA_VISIBLE_DEVICES=$GPU_ID uv run src/pcot_final.py \
         -dataset_file "$dataset_file" \
         -model "$model" \
-        -output "$output_file" \
+        -output_file_path "$output_file" \
         -prompts_file_path "$prompts_file_path" \
         -prompt_type "$prompt_type" \
-        -method_type "$method_type"
+        -method_type "$method_type" \
+        -use_vllm "$USE_VLLM"
 }
 
 # Loop through prompt types and datasets
 for model in "${models[@]}"; do
     for dataset_name in "${dataset_names[@]}"; do
-        dataset_file="$model/results/$dataset_name/PCoT_One_Detailed_MultiStep/persuasion_and_explanation.csv"
+        model_name_for_path=$(basename "$model")
+        dataset_file="results/$model_name_for_path/$dataset_name/PCoT_One_Detailed_MultiStep/persuasion_and_explanation.csv"
         for prompt_type in "${prompt_types[@]}"; do
             run_script "$dataset_file" "$prompt_type" "$model"
         done

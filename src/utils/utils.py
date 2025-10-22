@@ -11,7 +11,7 @@ from openai import OpenAI
 from dotenv import load_dotenv
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
-from sklearn.metrics import f1_score
+from transformers import BitsAndBytesConfig
 import google.generativeai as genai
 
 # Load environment variables from .env file
@@ -75,6 +75,38 @@ def client_instance(model):
         return client
 
 
+class LocalModelManager:
+    """
+    A singleton class to manage the loading of a local model and tokenizer.
+    This ensures the model is loaded only once and shared across different calls.
+    """
+    _instance = None
+    _pipe = None
+
+    def __new__(cls, *args, **kwargs):
+        if not cls._instance:
+            cls._instance = super(LocalModelManager, cls).__new__(cls)
+        return cls._instance
+
+    def load_model(self, model_path):
+        """
+        Loads the model and tokenizer and creates a pipeline.
+        If the pipeline is already loaded, it does nothing.
+        """
+        if self._pipe is None:
+            logging.info(f"Loading local model from {model_path} for the first time...")
+            quantization_config = BitsAndBytesConfig(load_in_8bit=True)
+            tokenizer = AutoTokenizer.from_pretrained(model_path)
+            model_obj = AutoModelForCausalLM.from_pretrained(
+                model_path,
+                quantization_config=quantization_config,
+                device_map="auto"
+            )
+            self._pipe = pipeline("text-generation", model=model_obj, tokenizer=tokenizer)
+            logging.info("Local model loaded successfully.")
+        return self._pipe
+
+
 def compute_metrics(y_true, y_pred):
     # clf_report = classification_report(y_true, y_pred, output_dict=True)
     f1 = f1_score(y_true=y_true, y_pred=y_pred)
@@ -126,19 +158,8 @@ def process_text_with_model(index, text, model, system_prompt, user_prompt):
         else:
             client = client_instance(model=model)
             if client == "local_llama":
-                model_path = model # Use the path passed from the shell script
-                tokenizer = AutoTokenizer.from_pretrained(model_path)
-                # The model will be loaded in 8-bit to reduce memory usage.
-                # If you have enough VRAM, you can remove `load_in_8bit=True`.
-                # If you don't have a GPU, you can remove `device_map="auto"`.
-                model_obj = AutoModelForCausalLM.from_pretrained(
-                    model_path,
-                    device_map="auto",
-                    dtype=torch.bfloat16,
-                    load_in_8bit=True 
-                )
-                pipe = pipeline("text-generation", model=model_obj, tokenizer=tokenizer)
-                
+                # Get the shared pipeline instance from the manager
+                pipe = LocalModelManager().load_model(model)
                 messages = [
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt},
@@ -219,6 +240,11 @@ def sequential_text_processing_claude(dataframe, col_with_content, column, filen
     # Ensure the directory for the file exists
     os.makedirs(os.path.dirname(filename), exist_ok=True)
 
+    # Pre-load the model if it's a local model to avoid loading it in each thread
+    if client_instance(model) == "local_llama":
+        LocalModelManager().load_model(model)
+
+
     results = []
     request_count = 0
     start_time = time.time()
@@ -249,36 +275,35 @@ def sequential_text_processing_claude(dataframe, col_with_content, column, filen
     dataframe.to_csv(filename, index=False)
 
 
-def parallel_text_processing(dataframe, col_with_content, column, filename, model, system_prompt, user_prompt):
+def sequential_text_processing(dataframe, col_with_content, column, filename, model, system_prompt, user_prompt):
     """
+    Processes texts in the dataframe sequentially.
     """
     # Ensure the column exists
     dataframe["system_prompt"] = None
     dataframe["user_prompt"] = None
     dataframe[column] = None
-
+    
     # Ensure the directory for the file exists
     os.makedirs(os.path.dirname(filename), exist_ok=True)
 
-    results = []
+    # Pre-load the model if it's a local model
+    if client_instance(model) == "local_llama":
+        LocalModelManager().load_model(model)
 
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        futures = [
-            executor.submit(process_text_with_model, index, text, model, system_prompt, user_prompt)
-            for index, text in enumerate(dataframe[col_with_content])
-        ]
-        for future in tqdm(concurrent.futures.as_completed(futures), total=len(futures)):
-            try:
-                result = future.result()
-                if result:
-                    results.append(result)
-            except Exception as e:
-                print(f"Thread failed with error: {e}")
+    results = []
+    for index, text in tqdm(enumerate(dataframe[col_with_content]), total=len(dataframe)):
+        result = process_text_with_model(index, text, model, system_prompt, user_prompt)
+        if result:
+            results.append(result)
+
     # Update the DataFrame after all threads have completed
     for result in results:
-        dataframe.at[result["index"], "system_prompt"] = result["system_prompt"]
-        dataframe.at[result["index"], "user_prompt"] = result["user_prompt"]
-        dataframe.at[result["index"], column] = result["completion"]
+        if result and result['completion'] is not None:
+            idx = result['index']
+            dataframe.at[idx, "system_prompt"] = result["system_prompt"]
+            dataframe.at[idx, "user_prompt"] = result["user_prompt"]
+            dataframe.at[idx, column] = result["completion"]
 
     # Save the DataFrame
     dataframe.to_csv(filename, index=False)
@@ -376,16 +401,8 @@ def process_pcot_multistep_or_ensemble(index, text, persuasion, model, dataframe
         else:
             client = client_instance(model=model)
             if client == "local_llama":
-                model_path = "C:/vscode/models"
-                tokenizer = AutoTokenizer.from_pretrained(model_path)
-                model_obj = AutoModelForCausalLM.from_pretrained(
-                    model_path,
-                    device_map="auto",
-                    dtype=torch.bfloat16,
-                    load_in_8bit=True
-                )
-                pipe = pipeline("text-generation", model=model_obj, tokenizer=tokenizer)
-
+                # Get the shared pipeline instance from the manager
+                pipe = LocalModelManager().load_model(model)
                 messages = [
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt},
@@ -525,8 +542,8 @@ def pcot_one_task(index, text, first_explanation, second_explanation, third_expl
         return None
 
 
-def parallel_pcot(dataframe, method_type, col_with_content, column, filename, model,
-                  system_prompt, user_part_1, user_part_2, generated_persuasion_analysis=None):
+def sequential_pcot(dataframe, method_type, col_with_content, column, filename, model,
+                    system_prompt, user_part_1, user_part_2, generated_persuasion_analysis=None):
     """
     Parallelized version of pcot_one_multistep.
     """
@@ -538,20 +555,32 @@ def parallel_pcot(dataframe, method_type, col_with_content, column, filename, mo
     # Ensure the directory for the file exists
     os.makedirs(os.path.dirname(filename), exist_ok=True)
 
-    # Use ThreadPoolExecutor to parallelize requests
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        futures = []
-        if method_type == "pcot_one_detailed_multistep":
-            for it, (text, persuasion) in tqdm(
-                    enumerate(zip(dataframe[col_with_content], dataframe[generated_persuasion_analysis]))):
-                futures.append(
-                    executor.submit(process_pcot_multistep_or_ensemble, it, text, persuasion, model, dataframe, column,
-                                    system_prompt, user_part_1, user_part_2)
-                )
+    # Pre-load the model if it's a local model to avoid loading it in each thread
+    if client_instance(model) == "local_llama":
+        LocalModelManager().load_model(model)
 
-    # Wait for all threads to complete
-    concurrent.futures.wait(futures)
+    results = []
+    if method_type == "pcot_one_detailed_multistep":
+        for it, (text, persuasion) in tqdm(
+                enumerate(zip(dataframe[col_with_content], dataframe[generated_persuasion_analysis])),
+                total=len(dataframe)):
+            result = process_pcot_multistep_or_ensemble(it, text, persuasion, model, dataframe, column,
+                                                         system_prompt, user_part_1, user_part_2)
+            if result:
+                results.append(result)
 
+    # This part seems redundant as process_pcot_multistep_or_ensemble already modifies the dataframe.
+    # However, to be safe and consistent, we can update it from the results.
+    for result in results:
+        if result:
+            index, completion_text = result
+            # The dataframe is already updated in the function, but we can ensure it here.
+            # Note: process_pcot_multistep_or_ensemble modifies the dataframe in place,
+            # which is not ideal for parallel execution but works for sequential.
+            # For clarity, it's better to return values and update here, but for now,
+            # we'll stick to the existing logic which modifies the dataframe directly.
+            pass
+            
     # Save the results to a CSV
     dataframe.to_csv(filename, index=False)
 
@@ -573,7 +602,7 @@ def process_text(df, model, output_file_path, system_prompt, user_prompt):
                 user_prompt=user_prompt
             )
         else:
-            parallel_text_processing(
+            sequential_text_processing(
                 dataframe=df.copy(),
                 col_with_content="content",
                 column="generated_pred",

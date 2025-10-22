@@ -1,6 +1,7 @@
 import argparse
 import logging
 from datetime import datetime
+import os
 from utils.utils import (
     process_text, load_prompts_simple_detection,
     load_prompts_persuasion_knowledge_infusion, setup_logging, read_csv_file
@@ -21,8 +22,9 @@ def main():
     dataset_file, model, output_file_path = args.dataset_file, args.model, args.output_file_path
     prompts_file_path, method_type, prompt_type = args.prompts_file_path, args.method_type, args.prompt_type
 
-    log_dir_part = dataset_file.replace("test.csv", "")
-    log_filename = f"{model}/logging/{method_type}/{log_dir_part}/logs_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.log"
+    model_name_for_path = os.path.basename(model)
+    log_dir_part = os.path.dirname(output_file_path).replace(f"results/{model_name_for_path}/", "")
+    log_filename = f"logging/{model_name_for_path}/{log_dir_part}/logs_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.log"
     setup_logging(log_filename, dataset_file, model, output_file_path)
 
     df = read_csv_file(dataset_file)

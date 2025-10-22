@@ -1,9 +1,9 @@
 import argparse
 import os
-import logging
+import logging 
 from datetime import datetime
 from utils.utils import (
-    parallel_pcot, load_prompts_pcot_one_multistep, sequential_pcot_claude, setup_logging, read_csv_file
+    sequential_pcot, load_prompts_pcot_one_multistep, sequential_pcot_claude, setup_logging, read_csv_file
 )
 
 
@@ -16,23 +16,24 @@ def parse_arguments():
     parser.add_argument('-prompts_file_path', type=str, required=True, help="Path to the prompts YAML file.")
     parser.add_argument('-method_type', type=str, required=True, help="Prompting method to use.")
     parser.add_argument('-prompt_type', type=str, required=True, help="Prompt type.")
+    parser.add_argument('-use_vllm', type=lambda x: (str(x).lower() == 'true'), default=False, help="Use vLLM for local model inference.")
     return parser.parse_args()
 
 
 def configure_logging(model, method_type, dataset_file, output_file_path):
     """Configures logging with a structured log filename."""
-    log_dir = os.path.join(model, "logging", method_type)
-    os.makedirs(log_dir, exist_ok=True)
-    log_filename = os.path.join(log_dir, f"logs_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.log")
+    model_name_for_path = os.path.basename(model) # Extract model name from path
+    log_dir_part = os.path.dirname(output_file_path).replace(f"results/{model_name_for_path}/", "")
+    log_filename = f"logging/{model_name_for_path}/{log_dir_part}/logs_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.log"
     setup_logging(log_filename=log_filename, dataset_file=dataset_file, model=model, output_file_path=output_file_path)
 
 
-def process_data(df, model, method_type, output_file_path, system_prompt, user_prompt_1, user_prompt_2):
+def process_data(df, model, method_type, output_file_path, system_prompt, user_prompt_1, user_prompt_2, use_vllm):
     """Processes data based on the model type."""
     try:
         logging.info("Starting text processing.")
         if model != "claude-3-haiku-20240307":
-            parallel_pcot(
+            sequential_pcot(
                 dataframe=df.copy(),
                 method_type=method_type,
                 col_with_content="content",
@@ -42,7 +43,8 @@ def process_data(df, model, method_type, output_file_path, system_prompt, user_p
                 model=model,
                 system_prompt=system_prompt,
                 user_part_1=user_prompt_1,
-                user_part_2=user_prompt_2
+                user_part_2=user_prompt_2,
+                use_vllm=use_vllm
             )
         else:
             sequential_pcot_claude(
@@ -75,7 +77,7 @@ def main():
     logging.info("Reading dataset...")
     df = read_csv_file(args.dataset_file)
 
-    process_data(df, args.model, args.method_type, args.output_file_path, system_prompt, user_prompt_1, user_prompt_2)
+    process_data(df, args.model, args.method_type, args.output_file_path, system_prompt, user_prompt_1, user_prompt_2, args.use_vllm)
 
 
 if __name__ == '__main__':
