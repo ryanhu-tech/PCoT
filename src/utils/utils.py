@@ -113,6 +113,8 @@ def process_text_with_model(index, text, model, system_prompt, user_prompt):
     """
     Processes a single text using the model and returns the result.
     """
+    user_prompt = user_prompt + f" Text:{text}. Answer:"
+    client = client_instance(model=model)
     try:
         user_prompt = user_prompt + f" Text:{text}. Answer:"
         client = client_instance(model=model)

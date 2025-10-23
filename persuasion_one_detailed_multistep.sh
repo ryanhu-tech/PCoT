@@ -13,9 +13,9 @@ method_type="pcot_one_detailed_multistep"
 
 # Define datasets
 declare -a datasets=(
-    "data/CoAID/test.csv"
-#    "data/ISOTFakeNews/test.csv"
-#    "data/MultiDis/test.csv"
+#    "data/CoAID/test.csv"
+#   "data/ISOTFakeNews/test.csv"
+    "data/MultiDis/test.csv"
 #    "data/EUDisinfo/test.csv"
 #    "data/ECTF/test.csv"
 )
