@@ -1,7 +1,7 @@
 #!/opt/homebrew/bin/bash
 
 # --- 指定要使用的 GPU ID (例如 0, 1, 2, 3) ---
-GPU_ID=3
+GPU_ID=${1:-3}
 
 # --- 是否使用 vLLM (設為 true 來啟用) ---
 USE_VLLM=true
