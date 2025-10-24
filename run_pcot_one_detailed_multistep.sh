@@ -1,27 +1,33 @@
 #!/opt/homebrew/bin/bash
 
+# --- 使用說明 ---
+# bash run_pcot_one_detailed_multistep.sh [GPU_ID] [MODEL_PATH] [DATASET_NAME]
+#
+# 範例:
+# bash run_pcot_one_detailed_multistep.sh 0 "/workspace/models/Llama-3.1-8B-Instruct" "CoAID"
+#
+# 參數:
+# GPU_ID:         要使用的 GPU ID (預設: 3)
+# MODEL_PATH:     模型的完整路徑 (預設: "/workspace/models/Llama-3.1-8B-Instruct")
+# DATASET_NAME:   資料集的名稱 (預設: "CoAID")
+#                 可選: "CoAID", "ISOTFakeNews", "MultiDis", "EUDisinfo", "ECTF"
+# -----------------
+
 # --- 指定要使用的 GPU ID (例如 0, 1, 2, 3) ---
 GPU_ID=${1:-3}
 
 # --- 是否使用 vLLM (設為 true 來啟用) ---
 USE_VLLM=true
 
-# Define models (comment out the ones you don't want to use)
-models=(
-    "/workspace/models/Llama-3.1-8B-Instruct"
-)
+# --- 從命令列參數設定模型和資料集，若未提供則使用預設值 ---
+MODEL_TO_RUN=${2:-"/workspace/models/Llama-3.1-8B-Instruct"}
+DATASET_NAME_TO_RUN=${3:-"CoAID"}
+
+models=("$MODEL_TO_RUN")
+dataset_names=("$DATASET_NAME_TO_RUN")
 
 prompts_file_path="prompts/pcot_final_step.yaml"
 method_type="pcot_one_detailed_multistep"
-
-# Define dataset names (comment out the ones you don't want to use)
-dataset_names=(
-    "CoAID"
-#    "ISOTFakeNews"
-#    "MultiDis"
-#    "EUDisinfo"
-#    "ECTF"
-)
 
 declare -a prompt_types=("VaN" "Z-CoT" "DeF_Spec")
 
