@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
 from transformers import BitsAndBytesConfig
+from sklearn.metrics import f1_score, classification_report, accuracy_score
 
 # Load environment variables from .env file
 load_dotenv()
@@ -92,18 +93,24 @@ class LocalModelManager:
 
 def compute_metrics(y_true, y_pred):
     # clf_report = classification_report(y_true, y_pred, output_dict=True)
-    f1 = f1_score(y_true=y_true, y_pred=y_pred)
+    # 確保標籤一致 (例如，所有小寫字串)
+    y_true = [str(label).lower() for label in y_true]
+    y_pred = [str(pred).lower() for pred in y_pred]
+
+    # 對於二元分類，明確定義正類別
+    # 假設 'fake' 是假新聞偵測中的正類別
+    f1_binary_fake = f1_score(y_true=y_true, y_pred=y_pred, pos_label='fake', average='binary')
     f1_micro_average = f1_score(y_true=y_true, y_pred=y_pred, average='micro')
     f1_macro_average = f1_score(y_true=y_true, y_pred=y_pred, average='macro')
-    f1_macro_weighted = f1_score(y_true=y_true, y_pred=y_pred, average='weighted')
-    # roc_auc = roc_auc_score(y_true, y_pred, average='micro')
-    # accuracy = accuracy_score(y_true, y_pred)
+    f1_weighted_average = f1_score(y_true=y_true, y_pred=y_pred, average='weighted')
+    accuracy = accuracy_score(y_true, y_pred)
 
     metrics = {
-        'f1': round(f1, 3),
+        'f1_binary_fake': round(f1_binary_fake, 3),
         'f1_micro': round(f1_micro_average, 3),
         'f1_macro': round(f1_macro_average, 3),
-        'f1_macro_weighted': round(f1_macro_weighted, 3)
+        'f1_weighted': round(f1_weighted_average, 3),
+        'accuracy': round(accuracy, 3)
     }
 
     return metrics

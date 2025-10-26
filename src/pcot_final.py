@@ -63,6 +63,8 @@ def main():
     )
 
     logging.info("Reading dataset...")
+    # --- 這就是讀取您指定的 CSV 檔案的關鍵程式碼 ---
+    # 它呼叫了 utils.py 中的 read_csv_file 函式
     df = read_csv_file(args.dataset_file)
 
     process_data(df, args.model, args.method_type, args.output_file_path, system_prompt, user_prompt_1, user_prompt_2, args.use_vllm)
